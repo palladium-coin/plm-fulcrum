@@ -72,3 +72,7 @@ Thumbs.db
 *.dll
 *.exe
 Fulcrum
+
+# qmake configure-test outputs
+config.log
+config.tests/*/test
