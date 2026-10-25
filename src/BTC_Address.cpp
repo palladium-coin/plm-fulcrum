@@ -22,6 +22,7 @@
 #include "Util.h"
 
 #include "bitcoin/base58.h"
+#include "bitcoin/bech32.h"
 #include "bitcoin/cashaddrenc.h"
 #include "bitcoin/script.h"
 
@@ -57,10 +58,52 @@ namespace BTC
             { ChipNet,    { {111, Address::P2PKH }, {196, Address::P2SH} } },
             { RegTestNet, { {111, Address::P2PKH }, {196, Address::P2SH} } },
         };
-        Byte verByteForNetAndKind(Net net, Address::Kind kind) {
+        // PLM (Palladium) base58 version bytes; same values as palladiumcore's chainparams.cpp. Regtest shares testnet's.
+        const QHash<Net, QHash<quint8, Address::Kind> > plmNetVerByteKindMap = {
+            { MainNet,      { {55, Address::P2PKH }, {5, Address::P2SH} } },
+            { TestNet,    { {127, Address::P2PKH }, {115, Address::P2SH} } },
+            { RegTestNet, { {127, Address::P2PKH }, {115, Address::P2SH} } },
+        };
+        /// PLM bech32 human-readable part for the net, or nullptr if the net has no PLM equivalent.
+        const char *plmHrpForNet(Net net) {
+            switch (net) {
+            case MainNet: return "plm";
+            case TestNet: return "tplm";
+            case RegTestNet: return "rplm";
+            default: return nullptr;
+            }
+        }
+        const QHash<Net, QHash<quint8, Address::Kind> > & verByteKindMapFor(Coin coin) {
+            return coin == Coin::PLM ? plmNetVerByteKindMap : netVerByteKindMap;
+        }
+        /// Regroup bits (BIP173 reference ConvertBits). Returns false on invalid padding.
+        template <int From, int To, bool Pad>
+        bool convertBits(std::vector<Byte> &out, const Byte *begin, const Byte *end) {
+            unsigned acc = 0;
+            int bits = 0;
+            constexpr unsigned maxv = (1u << To) - 1u, maxAcc = (1u << (From + To - 1)) - 1u;
+            for (const Byte *it = begin; it != end; ++it) {
+                acc = ((acc << From) | *it) & maxAcc;
+                bits += From;
+                while (bits >= To) {
+                    bits -= To;
+                    out.push_back(Byte((acc >> bits) & maxv));
+                }
+            }
+            if constexpr (Pad) {
+                if (bits) out.push_back(Byte((acc << (To - bits)) & maxv));
+            } else if (bits >= From || ((acc << (To - bits)) & maxv)) {
+                return false;
+            }
+            return true;
+        }
+        Byte verByteForNetAndKind(Coin coin, Net net, Address::Kind kind) {
+            if (coin == Coin::PLM && Address::isWitnessKind(kind))
+                // for witness kinds "verByte" holds the witness version
+                return plmHrpForNet(net) ? (kind == Address::P2TR ? 1 : 0) : Address::InvalidVerByte;
             if (kind == Address::TOKEN_P2PKH) kind = Address::P2PKH; // hack to support TOKEN_P2PKH
             else if (kind == Address::TOKEN_P2SH) kind = Address::P2SH; // hack to support TOKEN_P2SH
-            if (const auto map = netVerByteKindMap.value(net); !map.isEmpty()) [[likely]] {
+            if (const auto map = verByteKindMapFor(coin).value(net); !map.isEmpty()) [[likely]] {
                 for (auto it = map.begin(); it != map.end(); ++it) {
                     if (it.value() == kind)
                         return it.key();
@@ -68,8 +111,8 @@ namespace BTC
             }
             return Address::InvalidVerByte;
         }
-        Address::Kind kindForNetAndVerByte(Net net, Byte verByte) {
-            if (const auto map = netVerByteKindMap.value(net); !map.isEmpty()) [[likely]] {
+        Address::Kind kindForNetAndVerByte(Coin coin, Net net, Byte verByte) {
+            if (const auto map = verByteKindMapFor(coin).value(net); !map.isEmpty()) [[likely]] {
                 for (auto it = map.begin(); it != map.end(); ++it) {
                     if (it.key() == verByte)
                         return it.value();
@@ -80,8 +123,9 @@ namespace BTC
         /// NB: This won't ever auto-detect regtest since it has the same verBytes as testnet (111 & 196).  Since
         /// between the two choices, testnet is the much more likely network anybody using this software will be using,
         /// we always return testnet if the verByte matches regtest and/or testnet.
-        Net netForVerByte(Byte verByte) {
-            for (auto it = netVerByteKindMap.begin(); it != netVerByteKindMap.end(); ++it) {
+        Net netForVerByte(Coin coin, Byte verByte) {
+            const auto & verByteKindMap = verByteKindMapFor(coin);
+            for (auto it = verByteKindMap.begin(); it != verByteKindMap.end(); ++it) {
                 const Net net = it.key();
                 if (net == RegTestNet)
                     // don't auto-detect regtest net -- skip it.
@@ -112,7 +156,7 @@ namespace BTC
             return true;
         Address other(*this);
         other._net = net;
-        other.verByte = verByteForNetAndKind(other._net, other._kind);
+        other.verByte = verByteForNetAndKind(other._coin, other._net, other._kind);
         // true if both cashaddr and legacy encodings match
         return other.isValid()
                 && toString(false) == other.toString(false)
@@ -120,7 +164,7 @@ namespace BTC
     }
 
     /*static*/
-    Address Address::fromString(const QString &legacyOrCash)
+    Address Address::fromString(const QString &legacyOrCash, Coin coin)
     {
         static const auto DecodeCash = [] (Address & a, const std::string &ss) -> bool {
             using PN = std::pair<const std::string &, const Net>;
@@ -145,7 +189,7 @@ namespace BTC
             }
             if (!content.hash.empty() && a._net != Net::Invalid) {
                 a._kind = static_cast<Address::Kind>(content.type) /* Our Kind enum intentionally matches content.type's enum for values, so this works*/;
-                a.verByte = verByteForNetAndKind(a._net, a._kind);
+                a.verByte = verByteForNetAndKind(Coin::Unknown, a._net, a._kind);
                 if (a.verByte == InvalidVerByte) [[unlikely]]
                     // Defensive programming.. we should never reach this branch.
                     throw Exception("Unknown content.type or other missing data on cash addr decode attempt");
@@ -154,6 +198,39 @@ namespace BTC
                 return a.isValid(); // this is here as a reduntant check -- this should always be true if we get here
             }
             return false;
+        };
+        static const auto DecodePLMWitness = [] (Address & a, const std::string &ss) -> bool {
+            std::string hrp;
+            std::vector<Byte> data;
+            const auto enc = bech32::Decode(ss, hrp, data);
+            if (enc == bech32::Encoding::INVALID || data.empty() || data[0] > 16)
+                return false;
+            Net net = Net::Invalid;
+            for (const Net n : {MainNet, TestNet, RegTestNet}) {
+                if (hrp == plmHrpForNet(n)) { net = n; break; }
+            }
+            if (net == Net::Invalid)
+                return false;
+            const Byte witver = data[0];
+            std::vector<Byte> prog;
+            if (!convertBits<5, 8, false>(prog, data.data() + 1, data.data() + data.size()))
+                return false;
+            // Only the 3 standard output types are supported. Witness v0 must be bech32, v1+ must be bech32m (BIP350).
+            Address::Kind kind = Address::Invalid;
+            if (witver == 0 && enc == bech32::Encoding::BECH32) {
+                if (prog.size() == Address::H160Len) kind = Address::P2WPKH;
+                else if (prog.size() == Address::H256Len) kind = Address::P2WSH;
+            } else if (witver == 1 && enc == bech32::Encoding::BECH32M && prog.size() == Address::H256Len) {
+                kind = Address::P2TR;
+            }
+            if (kind == Address::Invalid)
+                return false;
+            a._coin = Coin::PLM;
+            a._net = net;
+            a._kind = kind;
+            a.verByte = witver;
+            a._hash = QByteArray(reinterpret_cast<const char *>(prog.data()), int(prog.size()));
+            return true;
         };
         Address a;
         std::vector<Byte> dec;
@@ -167,14 +244,15 @@ namespace BTC
                 a.verByte = dec[0];
                 a._hash.resize(decsize - 1);
                 std::memcpy(a._hash.data(), &dec[1], a._hash.size());
-                a._net = netForVerByte(a.verByte); // note this will not correctly differntiate between TestNet, TestNet4, ScaleNet and RegTestNet and always pick TestNet since they have the same verBytes.
+                a._coin = coin;
+                a._net = netForVerByte(coin, a.verByte); // note this will not correctly differntiate between TestNet, TestNet4, ScaleNet and RegTestNet and always pick TestNet since they have the same verBytes.
                 a.autosetKind(); // this will clear the address if something is wrong
             }
         } else {
             // Cash address
             bool ok = false;
             try {
-                if (!(ok = DecodeCash(a, ss))) {
+                if (!(ok = (coin == Coin::PLM ? DecodePLMWitness(a, ss) : DecodeCash(a, ss)))) {
 #ifdef QT_DEBUG
                     DebugM(__func__, ": got bad address ", legacyOrCash);
 #endif
@@ -193,7 +271,7 @@ namespace BTC
     {
         Address ret;
         if (k == Kind::P2PKH || k == Kind::TOKEN_P2PKH) [[likely]] {
-            if (const auto vb = verByteForNetAndKind(net, k); vb != InvalidVerByte && pend > pbegin) [[likely]] {
+            if (const auto vb = verByteForNetAndKind(Coin::Unknown, net, k); vb != InvalidVerByte && pend > pbegin) [[likely]] {
                 const auto hash160 = bitcoin::Hash160(pbegin, pend);
                 ret._hash = QByteArray(reinterpret_cast<const char *>(hash160.begin()), int(hash160.size()));
                 ret.verByte = vb;
@@ -211,7 +289,7 @@ namespace BTC
         ret._kind = Kind::P2SH;
         ret._hash = sh.toByteArray(true);
         ret._net = net;
-        ret.verByte = verByteForNetAndKind(ret._net, ret._kind);
+        ret.verByte = verByteForNetAndKind(Coin::Unknown, ret._net, ret._kind);
         return ret;
     }
 
@@ -220,11 +298,11 @@ namespace BTC
     bool Address::autosetKind()
     {
         if (const auto len = _hash.length(); len == int(H160Len)) {
-            _kind = kindForNetAndVerByte(_net, verByte);
+            _kind = kindForNetAndVerByte(_coin, _net, verByte);
             if (_kind != Kind::Invalid)
                 return true;
-        } else if (len == int(H256Len)) {
-            _kind = kindForNetAndVerByte(_net, verByte);
+        } else if (len == int(H256Len) && _coin != Coin::PLM /* PLM has no p2sh32 */) {
+            _kind = kindForNetAndVerByte(_coin, _net, verByte);
             if (_kind == Kind::P2SH || _kind == Kind::TOKEN_P2SH)
                 return true;
         }
@@ -238,7 +316,13 @@ namespace BTC
         using namespace bitcoin;
         CScript ret;
         const auto hbytes = std::as_bytes(std::span{_hash});
-        if (const size_t len = _hash.length(); len == H160Len) {
+        if (const size_t len = _hash.length(); _kind == P2WPKH && len == H160Len) {
+            ret << OP_0 << hbytes;
+        } else if ((_kind == P2WSH) && len == H256Len) {
+            ret << OP_0 << hbytes;
+        } else if (_kind == P2TR && len == H256Len) {
+            ret << OP_1 << hbytes;
+        } else if (len == H160Len) {
             if (_kind == P2PKH || _kind == TOKEN_P2PKH) {
                 ret << OP_DUP << OP_HASH160 << hbytes << OP_EQUALVERIFY << OP_CHECKSIG;
             } else if (_kind == P2SH || _kind == TOKEN_P2SH) {
@@ -265,7 +349,15 @@ namespace BTC
     QString Address::toString(bool legacy, std::optional<Byte> verByteOverride) const {
         QString ret;
         if (isValid()) {
-            if (legacy) {
+            if (_coin == Coin::PLM && isWitnessKind(_kind)) {
+                if (const char *hrp = plmHrpForNet(_net); hrp) {
+                    std::vector<Byte> data{verByte};
+                    convertBits<8, 5, true>(data, reinterpret_cast<const Byte *>(_hash.constData()),
+                                            reinterpret_cast<const Byte *>(_hash.constData()) + _hash.size());
+                    ret = QString::fromStdString(bech32::Encode(_kind == P2TR ? bech32::Encoding::BECH32M
+                                                                              : bech32::Encoding::BECH32, hrp, data));
+                }
+            } else if (legacy || _coin == Coin::PLM /* PLM has no cashaddr */) {
                 std::vector<Byte> vch;
                 vch.reserve(1 + size_t(_hash.size()));
                 vch.push_back(verByteOverride.value_or(verByte));
@@ -303,9 +395,9 @@ namespace BTC
     }
 
     /*static*/
-    bool Address::isValid(const QString &legacyOrCashAddress, Net net)
+    bool Address::isValid(const QString &legacyOrCashAddress, Net net, Coin coin)
     {
-        Address a(legacyOrCashAddress);
+        const Address a = Address::fromString(legacyOrCashAddress, coin);
         return a.isValid() && a._net == net;
     }
 
@@ -838,6 +930,85 @@ namespace BTC
         const auto t1 = App::registerTest("address", []{
             if (!Address::test())
                 throw Exception("address test failed");
+        });
+    }
+
+    namespace {
+        // Address <-> scriptPubKey vectors are taken from palladiumcore's src/test/data/key_io_valid.json and
+        // src/test/taproot_tests.cpp (P2PKH, P2SH, P2WPKH, P2WSH, P2TR on main / test / regtest).
+        const auto t2 = App::registerTest("address_plm", []{
+            struct Vec { const char *addr, *scriptHex, *chain; };
+            static const Vec vectors[] = {
+        {"PHrYiyUQTSekTWvVBNMEnSzV1DCB9TGR2P", "76a91465a16059864a2fdbc7c99a4723a8395bc6f188eb88ac", "main"},
+        {"3CMNFxN1oHBc4R1EpboAL5yzHGgE611Xou", "a91474f209f6ea907e2ea48f74fae05782ae8a66525787", "main"},
+        {"tEZSNGVUiXapct4zsnZcfz9CfqKhmUqguv", "76a91453c0307d6851aa0ce7825ba883c6bd9ad242b48688ac", "test"},
+        {"tEZSNGVUiXapct4zsnZcfz9CfqKhmUqguv", "76a91453c0307d6851aa0ce7825ba883c6bd9ad242b48688ac", "regtest"},
+        {"oRvMM9SjaZ8LpnNkN7R8MLj5ZtADdTxKan", "a9146349a418fc4578d10a372b54b45c280cc8c4382f87", "test"},
+        {"PJYEqYHSAbeurs8VH1yGEBX9z7WLA3GVdM", "76a9146d23156cbbdcc82a5a47eee4c2c7c583c18b6bf488ac", "main"},
+        {"3QjYXhTkvuj8qPaXHTTWb5wjXhdsLAAWVy", "a914fcc5460dd6e2487c7d75b1963625da0e8f4c597587", "main"},
+        {"tUyHPhkxH3xAt3EWTAWAN6btewJ4um5SJE", "76a914f1d470f9b02370fdec2e6b708b08ac431bf7a5f788ac", "test"},
+        {"oasWYfcYrxaJKoaFcEcT3GWjymSjtrdZqs", "a914c579342c2c4c9220205e2cdc285617040c924a0a87", "test"},
+        {"plm1qw508d6qejxtdg4y5r3zarvary0c5xw7kxmmspk", "0014751e76e8199196d454941c45d1b3a323f1433bd6", "main"},
+        {"rplm1qw508d6qejxtdg4y5r3zarvary0c5xw7k59erzz", "0014751e76e8199196d454941c45d1b3a323f1433bd6", "regtest"},
+        {"tplm1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q57antz", "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262", "test"},
+        {"tplm1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsescg4a2c", "0020000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433", "test"},
+        {"rplm1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesz3f90s", "0020000000c4a5cad46221b2a187905e5266362b99d5e91c6ce24d165dab93e86433", "regtest"},
+        {"plm1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxq3sa4q9", "5120a60869f0dbcf1dc659c9cecbaf8050135ea9e8cdc487053f1dc6880949dc684c", "main"},
+        {"plm1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0waszqs5k3", "5120a82f29944d65b86ae6b5e5cc75e294ead6c59391a1edc5e016e3498c67fc7bbb", "main"},
+        {"plm1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqf2vpwc", "5120882d74e5d0572d5a816cef0041a96b6c1de832f6f9676d9605c44d5e9a97d3dc", "main"},
+            };
+            const auto scriptHex = [](const Address &a) {
+                const auto cs = a.toCScript();
+                return QByteArray(reinterpret_cast<const char *>(cs.data()), int(cs.size())).toHex();
+            };
+            const auto check = [](bool cond, const QString &what) { if (!cond) throw Exception("address_plm test failed: " + what); };
+            for (const auto & [addr, hex, chain] : vectors) {
+                const Address a = Address::fromString(addr, Coin::PLM);
+                check(a.isValid(), QString("valid ") + addr);
+                check(a.coin() == Coin::PLM, QString("coin ") + addr);
+                check(scriptHex(a) == hex, QString("script ") + addr);
+                check(a.toString() == addr && a.toString(true) == addr, QString("round-trip ") + addr);
+                // base58 regtest addresses are indistinguishable from testnet (same version bytes), so expect TestNet
+                const Net expectNet = QByteArray(chain) == "main" ? MainNet : (QByteArray(addr).contains("plm1") && QByteArray(chain) == "regtest" ? RegTestNet : TestNet);
+                check(a.net() == expectNet, QString("net ") + addr);
+                check(Address::isValid(addr, expectNet, Coin::PLM), QString("isValid ") + addr);
+                if (a.kind() == Address::P2WPKH || a.kind() == Address::P2WSH || a.kind() == Address::P2TR)
+                    check(Address::fromString(QString(addr).toUpper(), Coin::PLM) == a, QString("uppercase ") + addr);
+                Log() << "address_plm: " << addr << " ok";
+            }
+            // kinds
+            check(Address::fromString("PHrYiyUQTSekTWvVBNMEnSzV1DCB9TGR2P", Coin::PLM).kind() == Address::P2PKH, "kind p2pkh");
+            check(Address::fromString("3CMNFxN1oHBc4R1EpboAL5yzHGgE611Xou", Coin::PLM).kind() == Address::P2SH, "kind p2sh");
+            check(Address::fromString("plm1qw508d6qejxtdg4y5r3zarvary0c5xw7kxmmspk", Coin::PLM).kind() == Address::P2WPKH, "kind p2wpkh");
+            check(Address::fromString("tplm1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q57antz", Coin::PLM).kind() == Address::P2WSH, "kind p2wsh");
+            check(Address::fromString("plm1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqf2vpwc", Coin::PLM).kind() == Address::P2TR, "kind p2tr");
+            // a testnet taproot address, built by re-encoding a mainnet program with the "tplm" hrp, must round-trip
+            {
+                const Address main = Address::fromString("plm1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqf2vpwc", Coin::PLM);
+                std::vector<Byte> data{1};
+                convertBits<8, 5, true>(data, reinterpret_cast<const Byte *>(main.hash().constData()),
+                                        reinterpret_cast<const Byte *>(main.hash().constData()) + main.hash().size());
+                for (const auto & [hrp, net] : {std::pair{"tplm", TestNet}, std::pair{"rplm", RegTestNet}}) {
+                    const auto str = QString::fromStdString(bech32::Encode(bech32::Encoding::BECH32M, hrp, data));
+                    const Address a = Address::fromString(str, Coin::PLM);
+                    check(a.isValid() && a.net() == net && a.kind() == Address::P2TR && a.hash() == main.hash() && a.toString() == str,
+                          QString("p2tr ") + hrp);
+                }
+                // witness v0 must be bech32 and v1 must be bech32m (BIP350): swapped encodings are rejected
+                std::vector<Byte> v0data{0};
+                convertBits<8, 5, true>(v0data, reinterpret_cast<const Byte *>(main.hash().constData()),
+                                        reinterpret_cast<const Byte *>(main.hash().constData()) + main.hash().size());
+                check(!Address::fromString(QString::fromStdString(bech32::Encode(bech32::Encoding::BECH32M, "plm", v0data)), Coin::PLM).isValid(), "v0 as bech32m rejected");
+                check(!Address::fromString(QString::fromStdString(bech32::Encode(bech32::Encoding::BECH32, "plm", data)), Coin::PLM).isValid(), "v1 as bech32 rejected");
+                check(Address::fromString(QString::fromStdString(bech32::Encode(bech32::Encoding::BECH32M, "plm", data)), Coin::PLM) == main, "v1 bech32m accepted");
+            }
+            // invalid: bad checksum, wrong hrp (bitcoin), non-standard witness program, wrong-coin base58
+            check(!Address::fromString("plm1qw508d6qejxtdg4y5r3zarvary0c5xw7kxmmspq", Coin::PLM).isValid(), "bad checksum");
+            check(!Address::fromString("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", Coin::PLM).isValid(), "wrong hrp");
+            check(!Address::fromString("plm1zw508d6qejxtdg4y5r3zarvaryvf9mh4q", Coin::PLM).isValid(), "non-standard witness v2");
+            check(!Address::fromString("1C3SoftYBC2bbDzCadZxDrfbnobEXLBLQZ", Coin::PLM).isValid(), "BTC/BCH p2pkh is not a PLM address");
+            check(!Address::fromString("plm1qw508d6qejxtdg4y5r3zarvary0c5xw7kxmmspk").isValid(), "bech32 needs coin=PLM");
+            Log() << "address_plm: all ok";
         });
     }
 

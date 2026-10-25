@@ -467,6 +467,7 @@ contains(DEFINES, ENABLE_TESTS) {
 SOURCES += \
     bitcoin/amount.cpp \
     bitcoin/base58.cpp \
+    bitcoin/bech32.cpp \
     bitcoin/block.cpp \
     bitcoin/cashaddr.cpp \
     bitcoin/cashaddrenc.cpp \
@@ -497,6 +498,7 @@ SOURCES += \
 HEADERS += \
     bitcoin/amount.h \
     bitcoin/base58.h \
+    bitcoin/bech32.h \
     bitcoin/block.h \
     bitcoin/cashaddr.h \
     bitcoin/cashaddrenc.h \

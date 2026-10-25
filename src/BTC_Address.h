@@ -46,7 +46,13 @@ namespace BTC {
             P2SH = bitcoin::CashAddrType::SCRIPT_TYPE,              // 1
             TOKEN_P2PKH = bitcoin::CashAddrType::TOKEN_PUBKEY_TYPE, // 2
             TOKEN_P2SH = bitcoin::CashAddrType::TOKEN_SCRIPT_TYPE,  // 3
+            // PLM only (bech32 / bech32m segwit addresses). Not valid cashaddr types.
+            P2WPKH = 4, ///< witness v0, 20 byte program
+            P2WSH = 5,  ///< witness v0, 32 byte program
+            P2TR = 6,   ///< witness v1 (taproot), 32 byte program
         };
+
+        static constexpr bool isWitnessKind(Kind k) noexcept { return k == P2WPKH || k == P2WSH || k == P2TR; }
 
         static constexpr Byte InvalidVerByte = 0xff;
 
@@ -56,7 +62,9 @@ namespace BTC {
         Address(const char *legacyOrCashAddress) { *this = legacyOrCashAddress; }
         Address(const QByteArray &legacyOrCashAddress) { *this = legacyOrCashAddress; }
 
-        static Address fromString(const QString &legacyOrCash); ///< auto-detects Net based on decoded address contents
+        /// Auto-detects Net based on decoded address contents. If `coin` is Coin::PLM the string is parsed as a PLM
+        /// base58 (P2PKH, P2SH) or bech32/bech32m (P2WPKH, P2WSH, P2TR) address; otherwise as BCH/BTC legacy or cashaddr.
+        static Address fromString(const QString &legacyOrCash, Coin coin = Coin::Unknown);
         /// Note that for fromPubKey, kind must be P2PKH or TOKEN_P2PKH
         static Address fromPubKey(const Byte *pbegin, const Byte *pend, Kind, Net = MainNet);
         static Address fromPubKey(const QByteArray &pubKey, Kind kind, Net net = MainNet) { return fromPubKey(reinterpret_cast<const Byte *>(pubKey.constData()), reinterpret_cast<const Byte *>(pubKey.constData() + pubKey.length()), kind, net); }
@@ -68,6 +76,7 @@ namespace BTC {
 
         Kind kind() const noexcept { return _kind; }
         Net net() const noexcept { return _net; }
+        Coin coin() const noexcept { return _coin; }
 
         //! Returns true if this address is valid would be identical if encoded on network `net`.
         //! This is only true for TestNet, TestNet4, & ScaleNet which are interchangeable.
@@ -84,8 +93,8 @@ namespace BTC {
                     && _net != Net::Invalid && verByte != InvalidVerByte;
         }
 
-        /// test any string to see if it's a valid address for the specified network
-        static bool isValid(const QString &legacyOrCashAddress, Net = MainNet);
+        /// test any string to see if it's a valid address for the specified network (and coin)
+        static bool isValid(const QString &legacyOrCashAddress, Net = MainNet, Coin = Coin::Unknown);
 
         /// Returns the bitcoin script bytes as would be used in a spending transaction.
         /// for use with CTransaction et al in the txOut )
@@ -95,6 +104,7 @@ namespace BTC {
         QByteArray toHashX() const;
 
         /// If isValid, returns the address as a string (either cash address w/ prefix, or legacy address string).
+        /// For PLM the `legacy` flag is ignored: P2PKH & P2SH are base58, the witness kinds are bech32/bech32m.
         /// Returns an empty QString if !isValid.
         QString toString(bool legacy=false) const { return toString(legacy, std::nullopt); }
 
@@ -113,7 +123,7 @@ namespace BTC {
         std::strong_ordering operator<=>(const Address & o) const noexcept {
             if (isValid() && o.isValid())
                 // lex-compare using 3-way tuple compare
-                return std::tie(_net, verByte, _kind, _hash) <=> std::tie(o._net, o.verByte, o._kind, o._hash);
+                return std::tie(_net, verByte, _kind, _hash, _coin) <=> std::tie(o._net, o.verByte, o._kind, o._hash, o._coin);
             else
                 // invalid always sorts before valid; both invalid are equal
                 return isValid() - o.isValid() <=> 0;
@@ -124,8 +134,9 @@ namespace BTC {
     private:
         Net _net = BTC::Invalid;
         Byte verByte = InvalidVerByte;
-        QByteArray _hash; // this holds either a p2pkh, p2sh, or a p2sh_32 payload
+        QByteArray _hash; // this holds either a p2pkh, p2sh, a p2sh_32 payload, or a PLM witness program
         Kind _kind = Kind::Invalid;
+        Coin _coin = Coin::Unknown; // Unknown means BCH/BTC rules (the original behavior); PLM selects PLM rules
         bool autosetKind();
 
         QString toString(bool legacy, std::optional<Byte> verByteOverride) const;
