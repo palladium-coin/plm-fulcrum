@@ -107,7 +107,7 @@ public:
     QString bannerFile = "",
             torBannerFile = ""; ///< same as above, but configured from tor_banner=
 
-    bool peerDiscovery = true, peerAnnounceSelf = true; ///< comes from config setting: 'peering' and 'announce'
+    bool peerDiscovery = false, peerAnnounceSelf = true; ///< comes from config setting: 'peering' and 'announce'
     bool peeringEnforceUniqueIPs = true; ///< comes from config 'peering_enforce_unique_ip'
 
     std::optional<QString> hostName; ///< corresponds to hostname in server config

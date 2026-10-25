@@ -150,7 +150,11 @@ void PeerMgr::parseServersDotJson(const QString &fnIn)
     const auto backend = Options::isSimdJson() ? Json::ParserBackend::FastestAvailable : Json::ParserBackend::Default; // kind of a hack
     QVariantMap m = Json::parseFile(fnIn, Json::ParseOption::RequireObject, backend).toMap();
     const QString fn = Util::basename(fnIn); // use basename for error messages below, etc
-    if (m.isEmpty()) throw InternalError(QString("PeerMgr: %1 file parsed to an empty dict! FIXME!").arg(fn));
+    if (m.isEmpty()) {
+        // e.g. PLM ships with no seed peers; other servers can still be learned via server.add_peer
+        Warning() << "PeerMgr: " << fn << " has no seed peers";
+        return;
+    }
     for (auto it = m.begin(); it != m.end(); ++it) {
         PeerInfo info;
         QVariantMap d = it.value().toMap();
