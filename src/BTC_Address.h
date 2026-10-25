@@ -104,9 +104,6 @@ namespace BTC {
         /// Alias for toString(true)
         QString toLegacyString() const { return toString(true); }
 
-        /// Hack to support converting any address to LTC TODO: Proper support for LTC addresses
-        QString toLitecoinString() const;
-
         Address & operator=(const QString &legacyOrCash) { return (*this = Address::fromString(legacyOrCash)); }
         Address & operator=(const char *legacyOrCash) { return (*this = QString(legacyOrCash)); }
         Address & operator=(const QByteArray &legacyOrCash) { return (*this = QString(legacyOrCash)); }
