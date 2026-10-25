@@ -61,6 +61,7 @@ struct BitcoinDInfo {
     RpcSupportInfo rpcSupportInfo;
     bool isCore = false; ///< true if we are actually connected to /Satoshi.. node (Bitcoin Core)
     bool isLTC = false; ///< true if we are actually connected to /LitecoinCore.. node (Litecoin)
+    bool isPLM = false; ///< true if we are connected to a /Palladium:.. node (Palladium, PLM)
     bool isBU = false; ///< true if subversion string starts with "/BCH Unlimited:"
     bool isFlowee = false; ///< true if subversion string starts with "/Flowee"
     bool isBchd = false; ///< true if remote bitcoind subversion is: /bchd:...
