@@ -2057,8 +2057,10 @@ void Server::rpc_blockchain_transaction_broadcast(Client *c, const RPC::BatchId 
             logFilter->broadcast(true, logLine, txkey);
             // Next, check if client is old and has the phishing exploit:
             // version 3.3.4 was the first one that was good for both Electron Cash and Electrum
+            // (skipped on PLM: there is no known client name / download site to point users at, and the 3.3.4
+            // cutoff refers to Electrum / Electron Cash version numbers, not to any PLM wallet)
             constexpr Version FirstNonVulnerableVersion(3,3,4);
-            if (const auto uaVersion = c->info.uaVersion(); uaVersion.isValid() && uaVersion < FirstNonVulnerableVersion) {
+            if (const auto uaVersion = c->info.uaVersion(); !isPLM() && uaVersion.isValid() && uaVersion < FirstNonVulnerableVersion) {
                 // The below is to warn old clients that they are vulnerable to a phishing attack.
                 // This logic is also used by the ElectronX implementations here:
                 // https://github.com/Electron-Cash/electrumx/blob/fbd00416d804c286eb7de856e9399efb07a2ceaf/electrumx/server/session.py#L1526
