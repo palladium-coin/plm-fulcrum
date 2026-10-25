@@ -7,6 +7,13 @@ A fast & nimble SPV server for Bitcoin Cash, Bitcoin BTC, and Litecoin.
 
 For more information, visit [The Official Fulcrum Website™️](https://fulcrumserver.org/).
 
+#### Palladium (PLM) adaptation
+This repository is a fork of [Fulcrum](https://github.com/cculianu/Fulcrum) by Calin Culianu, adapted to support
+Palladium (PLM). It is **not** the official Fulcrum.
+
+Forked from upstream `master` at commit [`02e22da`](https://github.com/cculianu/Fulcrum/commit/02e22da92355893d8696305f0741acb7a8bc61f4)
+("Refreshed servers*.json for BCH and BTC", version 2.1.4). All PLM-specific changes live on the `main` branch.
+
 #### Copyright
 (C) 2019-2026 Calin Culianu <calin.culianu@gmail.com>
 
