@@ -2649,8 +2649,9 @@ int Storage::getConfiguredRpaStartHeight() const
     if (const int reqHt = options->rpa.requestedStartHeight; reqHt >= 0)
         return reqHt; // user requested a specific start height >= 0
 
-    // otherwise, do "auto", which is 825,000 for mainnet, 0 for all other nets
-    if (BTC::NetFromName(getChain()) == BTC::Net::MainNet)
+    // otherwise, do "auto", which is 825,000 for mainnet, 0 for all other nets (and for PLM, whose mainnet tip is
+    // far below 825,000)
+    if (BTC::NetFromName(getChain()) == BTC::Net::MainNet && BTC::coinFromName(getCoin()) != BTC::Coin::PLM)
         return Options::Rpa::defaultStartHeightForMainnet;
     return Options::Rpa::defaultStartHeightOtherNets;
 }
