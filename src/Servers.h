@@ -324,8 +324,9 @@ protected:
     /// This is set on construction by querying Storage. Subclasses may use this information at runtime to present
     /// RPC behavior differences between BTC vs BCH vs LTC (e.g. in the address_* RPCs).
     BTC::Coin coin = BTC::Coin::Unknown;
-    /// If true we are on the BTC or LTC chains.
+    /// If true we are on the BTC, LTC or PLM chains.
     bool isNonBCH() const { return coin != BTC::Coin::BCH; }
+    bool isPLM() const { return coin == BTC::Coin::PLM; }
     bool isLTC() const { return coin == BTC::Coin::LTC; }
     bool isBTC() const { return coin == BTC::Coin::BTC; }
 

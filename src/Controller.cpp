@@ -350,6 +350,12 @@ void Controller::on_coinDetected(const BTC::Coin detectedtype)
                        "At the present time, to use BTC, bitcoind must be Bitcoin Core v0.17.0 or above.\n"
                        "Please either connect to the appropriate bitcoind for this database, or delete\n"
                        "the datadir and resynch.\n";
+        } else if (detectedtype == BTC::Coin::PLM || ourtype == BTC::Coin::PLM) {
+            Fatal() << "\n\n"
+                       "Coin mismatch: this database is for " << BTC::coinToName(ourtype) << " but the connected bitcoind is "
+                    << BTC::coinToName(detectedtype) << ".\n\n"
+                       "Please either connect to the appropriate bitcoind for this database, or delete\n"
+                       "the datadir and resynch.\n";
         } else {
             // Generic message for LTC/BCH/BTC mismatch.
             Fatal() << "Unexpected coin combination: ourtype=" << BTC::coinToName(ourtype)
