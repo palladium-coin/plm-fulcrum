@@ -17,6 +17,8 @@ Forked from upstream `master` at commit [`02e22da`](https://github.com/cculianu/
 #### Copyright
 (C) 2019-2026 Calin Culianu <calin.culianu@gmail.com>
 
+(C) 2026 Davide Grilli (Palladium (PLM) adaptation)
+
 #### License:
 GPLv3. See the included `LICENSE.txt` file or [visit gnu.org and read the license](https://www.gnu.org/licenses/gpl-3.0.html).
 
