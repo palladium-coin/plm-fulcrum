@@ -66,9 +66,8 @@ void PreProcessedBlock::fill(BlockHeight blockHeight, const BlockHash &blockHash
             outputs.push_back(OutPt{.txIdx = unsigned(txIdx),
                                     .outN = outN,
                                     .amount = out.nValue,
-                                    .spentInInputIndex = std::nullopt,
-                                    .tokenDataPtr = out.tokenDataPtr});
-            estimatedThisSizeBytes += sizeof(OutPt) + (out.tokenDataPtr ? out.tokenDataPtr->GetMemSize() : 0u);
+                                    .spentInInputIndex = std::nullopt});
+            estimatedThisSizeBytes += sizeof(OutPt);
             const size_t outputIdx = outputs.size()-1;
             if (const auto cscript = out.scriptPubKey;
                     !BTC::IsOpReturn(cscript))  ///< skip OP_RETURN
@@ -205,7 +204,6 @@ QString PreProcessedBlock::toDebugString() const
                 const auto idx = ag.outs[j];
                 ts << " {out# " << j << " - " << txHashForOutputIdx(idx).toHex() << ":" << outputs[idx].outN
                    << " amt: " << outputs[idx].amount.ToString().c_str()
-                   << " tok: " << (outputs[idx].tokenDataPtr ? outputs[idx].tokenDataPtr->ToString().c_str() : "")
                    << " }";
             }
             ts << ")";

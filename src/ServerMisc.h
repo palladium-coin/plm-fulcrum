@@ -28,10 +28,6 @@ namespace ServerMisc
 
     /// Used in various places to rejects old clients or incompatible peers.
     inline constexpr Version MinProtocolVersion{1, 4, 0}, MaxProtocolVersion{1, 6, 0};
-    /// The first version where we expect clients to be "token aware" and thus we return token_data to them by default
-    /// in e.g. listunspent and get_balance.
-    inline constexpr Version MinTokenAwareProtocolVersion{1, 5, 0};
-
     extern const QString AppVersion,  ///< in string form suitable for sending in protocol or banner e.g. "2.0"
                          AppSubVersion; ///< e.g. "Fulcrum 2.0"
 

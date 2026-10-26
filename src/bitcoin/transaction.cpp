@@ -44,10 +44,9 @@ std::string CTxIn::ToString(bool fVerbose) const {
 
 std::string CTxOut::ToString(bool fVerbose) const {
     const std::string::size_type cutoff = fVerbose ? std::string::npos : 30;
-    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s%s)", nValue / COIN,
+    return strprintf("CTxOut(nValue=%d.%08d, scriptPubKey=%s)", nValue / COIN,
                      (nValue % COIN) / SATOSHI,
-                     HexStr(scriptPubKey).substr(0, cutoff),
-                     tokenDataPtr ? (" " + tokenDataPtr->ToString(fVerbose)) : "");
+                     HexStr(scriptPubKey).substr(0, cutoff));
 }
 
 template <class Derived>

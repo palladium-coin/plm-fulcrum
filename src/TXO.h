@@ -113,14 +113,13 @@ struct TXOInfo {
     HashX hashX; ///< the scripthash this output is sent to.  Note in most cases this can be compactified to be a shallow-copy of existing data (such that dupes point to the same underlying data in eg UTXOSet).
     std::optional<BlockHeight> confirmedHeight; ///< if unset, is mempool tx
     TxNum txNum = 0; ///< the globally mapped txNum (one for each TxHash). This is used to be able to delete the CompactTXO from the hashX's scripthash_unspent table
-    bitcoin::token::OutputDataPtr tokenDataPtr; ///< may be null, if not-null, output has token data on it
 
     bool isValid() const { return amount / bitcoin::Amount::satoshi() >= 0 && hashX.length() == HashLen; }
 
     /// for debug, etc
     bool operator==(const TXOInfo &o) const {
-        return     std::tie(  amount,   hashX,   confirmedHeight,   txNum,   tokenDataPtr)
-                == std::tie(o.amount, o.hashX, o.confirmedHeight, o.txNum, o.tokenDataPtr);
+        return     std::tie(  amount,   hashX,   confirmedHeight,   txNum)
+                == std::tie(o.amount, o.hashX, o.confirmedHeight, o.txNum);
     }
 
 private:
@@ -135,10 +134,7 @@ public:
         if (!isValid()) return ret;
         const uint64_t amt_sats_le = Util::hToLe64(amount / bitcoin::Amount::satoshi());
         const uint32_t cheight_le = Util::hToLe32(confirmedHeight.value_or(kNoBlockHeight)); // NB: earlier version of this code used int32_t(-1) here to indicate no cheight.
-        const QBASz minSize = static_cast<QBASz>(minSerSize());
-        const QBASz rsvSize = minSize + (tokenDataPtr ? 1 + static_cast<QBASz>(tokenDataPtr->EstimatedSerialSize()) : 0);
-        ret.reserve(rsvSize);
-        ret.resize(minSize);
+        ret.resize(static_cast<QBASz>(minSerSize()));
         char *cur = ret.data();
         std::memcpy(cur, &amt_sats_le, sizeof(amt_sats_le));
         cur += sizeof(amt_sats_le);
@@ -147,15 +143,13 @@ public:
         CompactTXO::txNumToCompactBytes(reinterpret_cast<std::byte *>(cur), txNum, /*bigEndian=*/false);
         cur += CompactTXO::compactTxNumSize(); // always 6
         std::memcpy(cur, hashX.constData(), size_t(hashX.length())); // always 32 (enforced by isValid() check above)
-        // NOTE: `cur` may be invalidated below
-        BTC::SerializeTokenDataWithPrefix(ret, tokenDataPtr.get());
         return ret;
     }
 
     /// `ba` must only contain the valid bytes for this object. Will not tolerate junk bytes at the end.
     static TXOInfo fromBytes(const QByteArray &ba) {
         TXOInfo ret;
-        if (size_t(ba.length()) < minSerSize()) {
+        if (size_t(ba.length()) != minSerSize()) {
             return ret;
         }
         uint64_t amt_le;
@@ -173,15 +167,6 @@ public:
         const uint32_t cheight = Util::le32ToH(cheight_le);
         if (cheight != kNoBlockHeight) // NB: earlier version of this code used int32_t(-1) here to indicate no cheight, which is the same as uint32_t(-1) byte-wise
             ret.confirmedHeight.emplace(cheight);
-        try {
-            ret.tokenDataPtr = BTC::DeserializeTokenDataWithPrefix(ba, cur - ba.constData());
-            if constexpr (false) // Left-in for debugging purposes
-                if (ret.tokenDataPtr) Debug() << "Deserialized token data: " << ret.tokenDataPtr->ToString(true).c_str();
-        } catch (const std::exception &e) {
-            // This should never happen. Indicate serious error.
-            Error() << "Got exception deserializing token data: " << e.what() << " (bytearray hex: " << ba.toHex() << ")";
-            ret = TXOInfo{};
-        }
         return ret;
     }
 

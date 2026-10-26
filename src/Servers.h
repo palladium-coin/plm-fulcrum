@@ -338,9 +338,9 @@ protected:
     /// Returns the QVariantMap suitable for placing into the resulting response.
     QVariantList getHistoryCommon(const HashX & scriptHash, bool mempoolOnly, const GetHistory_FromToBH & = default_GetHistory_FromToBH);
     /// Called for get_balance and also Admin server's query_address
-    QVariantMap getBalanceCommon(const HashX & scriptHash, Storage::TokenFilterOption tokenFilter);
+    QVariantMap getBalanceCommon(const HashX & scriptHash);
     /// Called for listunspent and also Admin server's query_address
-    QVariantList listUnspentCommon(const HashX & scriptHash, Storage::TokenFilterOption tokenFilter);
+    QVariantList listUnspentCommon(const HashX & scriptHash);
 
 public:
     /// Helper function called by blockchain.scripthash.listunspent RPC and by the Controller class for /debug/
@@ -362,7 +362,7 @@ public:
     /// which also needs a features dict when *it* calls add_peer on peer servers.
     /// NOTE: Be sure to only ever call this function from the same thread as the AbstractConnection (first arg) instance!
     static QVariantMap makeFeaturesDictForConnection(AbstractConnection *, const QByteArray &genesisHash,
-                                                     const Options & options, bool hasCashTokens,
+                                                     const Options & options,
                                                      bool hasBroadcastPackage);
 
     virtual QString prettyName() const override;
@@ -442,11 +442,11 @@ private:
 
     // Impl. for blockchain.scripthash.* & blockchain.address.* methods (both sets call into these).
     // Note: Validation should have already been done by caller.
-    void impl_get_balance(Client *, RPC::BatchId, const RPC::Message &, const HashX &scriptHash, Storage::TokenFilterOption tokenFilter);
+    void impl_get_balance(Client *, RPC::BatchId, const RPC::Message &, const HashX &scriptHash);
     void impl_get_first_use(Client *, RPC::BatchId, const RPC::Message &, const HashX &scriptHash);
     void impl_get_history(Client *, RPC::BatchId, const RPC::Message &, const HashX &scriptHash, const GetHistory_FromToBH &);
     void impl_get_mempool(Client *, RPC::BatchId, const RPC::Message &, const HashX &scriptHash);
-    void impl_listunspent(Client *, RPC::BatchId, const RPC::Message &, const HashX &scriptHash, Storage::TokenFilterOption tokenFilter);
+    void impl_listunspent(Client *, RPC::BatchId, const RPC::Message &, const HashX &scriptHash);
     void impl_generic_subscribe(SubsMgr *, Client *, RPC::BatchId, const RPC::Message &, const HashX &key,
                                 const std::optional<QString> & aliasUsedForNotifications = {});
     void impl_generic_unsubscribe(SubsMgr *, Client *, RPC::BatchId, const RPC::Message &, const HashX &key);
@@ -470,8 +470,6 @@ private:
     HashX parseFirstHashParamCommon(const RPC::Message &m, const char *const errMsg = nullptr) const;
 
     /// Helper used by blockchain.*.listunspent *.get_balance to parse optional 2nd arg
-    Storage::TokenFilterOption parseTokenFilterOptionCommon(Client *c, const RPC::Message &m, size_t argPos) const;
-
     /// Helper used by blockchain.*.get_history to get the from_height and to_height optional params, if any
     GetHistory_FromToBH parseFromToBlockHeightCommon(const RPC::Message &m) const;
 
@@ -680,9 +678,6 @@ public:
     double lastWarnedAboutSubsLimit = 0.; ///< used to throttle log messages when client hits subs limit
 
     static std::atomic_size_t numClients, numClientsMax, numClientsCtr; // number of connected clients: current, max lifetime, accumulated counter
-
-    /// Returns true iff the client is token aware (protocol version >= 1.4.6). Note that this only makese sense on BCH.
-    bool hasMinimumTokenAwareVersion() const;
 
     /// Reimplements base class, defaulting `anon` to whatever is set in options, and then calls base class impl.
     QString prettyName(bool dontTouchSocket=false, bool showId=true, AnonymizeIP anon=AnonymizeIP::Auto) const override;

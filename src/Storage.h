@@ -262,7 +262,6 @@ public:
         IONum tx_pos = 0;
         bitcoin::Amount value;
         TxNum txNum = 0; ///< the global txNum. This + tx_pos defines the order
-        bitcoin::token::OutputDataPtr tokenDataPtr; ///< may be null, not null for outputs containing tokens
 
         // for sort & maps
         bool operator<(const UnspentItem &o) const noexcept;
@@ -270,14 +269,12 @@ public:
     };
     using UnspentItems = std::vector<UnspentItem>;
 
-    enum class TokenFilterOption { IncludeTokens, ExcludeTokens, OnlyTokens };
-
     /// Thread-safe. Will return an empty vector if the confirmed unspent size exceeds MaxHistory items. It may also
     /// return a truncated vector if the overflow is as a result of confirmed+unconfirmed exceeding MaxHistory.
-    UnspentItems listUnspent(const HashX &, TokenFilterOption) const;
+    UnspentItems listUnspent(const HashX &) const;
 
     /// thread safe -- returns confirmd, unconfirmed balance for a scripthash
-    std::pair<bitcoin::Amount, bitcoin::Amount> getBalance(const HashX &, TokenFilterOption) const;
+    std::pair<bitcoin::Amount, bitcoin::Amount> getBalance(const HashX &) const;
 
     //-- scriptHash first use
     struct FirstUse {
@@ -549,7 +546,7 @@ RocksDB: "utxoset" √
 
 RocksDB: "scripthash_unspent" √
   Key: scripthash_raw_bytes + serialized CompactTXO (big endian) (41 bytes)
-  Value: 8-byte amount field (64-bit signed integer), plus optional tokenData (prefixed by 0xef)
+  Value: 8-byte amount field (64-bit signed integer)
 
   Comments: It turns out scanning by prefix over a table is blazingly fast in rocksdb, so we can easily do listunspent
     using this scheme. I tried a read-modify-write approach (keying off just HashX) and it was painfully slow on synch.

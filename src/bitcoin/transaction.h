@@ -9,7 +9,6 @@
 #include "amount.h"
 #include "script.h"
 #include "serialize.h"
-#include "token.h"
 #include "txid.h"
 
 #include <algorithm>
@@ -36,8 +35,6 @@ static constexpr int SERIALIZE_TRANSACTION = 0x00;
 // Added by Calin, imported from Core. Note in Core this flag has the *opposite* meaning
 // (there it is called SERIALIZE_TRANSACTION_NO_WITNESS
 static constexpr int SERIALIZE_TRANSACTION_USE_WITNESS = 0x40000000;
-// Added by Calin to optionally enable/disbale token ser/deser (BCH-specific)
-static constexpr int SERIALIZE_TRANSACTION_USE_CASHTOKENS = 0x10000000;
 
 static_assert (sizeof(int) >= 4);
 
@@ -144,52 +141,23 @@ class CTxOut {
 public:
     Amount nValue;
     CScript scriptPubKey;
-    token::OutputDataPtr tokenDataPtr; ///< may be null (indicates no token data for this output)
 
     CTxOut() noexcept { SetNull(); }
 
-    CTxOut(Amount nValueIn, const CScript &scriptPubKeyIn, const token::OutputDataPtr &tokenDataIn = {})
-        : nValue(nValueIn), scriptPubKey(scriptPubKeyIn), tokenDataPtr(tokenDataIn) {}
-
-    CTxOut(Amount nValueIn, const CScript &scriptPubKeyIn, token::OutputDataPtr &&tokenDataIn = {})
-        : nValue(nValueIn), scriptPubKey(scriptPubKeyIn), tokenDataPtr(std::move(tokenDataIn)) {}
-    CTxOut(Amount nValueIn, CScript &&scriptPubKeyIn, token::OutputDataPtr &&tokenDataIn = {})
-        : nValue(nValueIn), scriptPubKey(std::move(scriptPubKeyIn)), tokenDataPtr(std::move(tokenDataIn)) {}
+    CTxOut(Amount nValueIn, const CScript &scriptPubKeyIn) : nValue(nValueIn), scriptPubKey(scriptPubKeyIn) {}
+    CTxOut(Amount nValueIn, CScript &&scriptPubKeyIn) : nValue(nValueIn), scriptPubKey(std::move(scriptPubKeyIn)) {}
 
     SERIALIZE_METHODS(CTxOut, obj) {
         READWRITE(obj.nValue);
-        const bool shortPath =
-                // Caller doesn't want to *read* CashTokens, so short-circuit out by just reading all
-                // remaining data into scriptPubKey. Note that this GetVersion check can only apply if
-                // reading. If serializing we don't rely on GetVersion() at all but instead must check
-                // whether obj.tokenDataPtr is not null and instead just serialize normally since
-                // sometimes SER_GETHASH will pass 0 for GetVersion() here... :/
-                (ser_action.ForRead() && !(s.GetVersion() & SERIALIZE_TRANSACTION_USE_CASHTOKENS))
-                // fast-path for writing with no token data, just write out the scriptPubKey directly
-                || (!ser_action.ForRead() && !obj.tokenDataPtr);
-        if (shortPath) {
-            READWRITE(obj.scriptPubKey);
-            // If acturally reading, ensure tokenDataPtr is cleared to ensure proper object state
-            SER_READ(obj, obj.tokenDataPtr.reset());
-        } else {
-            token::WrappedScriptPubKey wspk;
-            SER_WRITE(obj, token::WrapScriptPubKey(wspk, obj.tokenDataPtr, obj.scriptPubKey, s.GetVersion()));
-            READWRITE(wspk);
-            SER_READ(obj, token::UnwrapScriptPubKey(wspk, obj.tokenDataPtr, obj.scriptPubKey, s.GetVersion()));
-        }
+        READWRITE(obj.scriptPubKey);
     }
 
     void SetNull() {
         nValue = -SATOSHI;
         scriptPubKey.clear();
-        tokenDataPtr.reset();
     }
 
     bool IsNull() const { return nValue == -SATOSHI; }
-
-    bool HasUnparseableTokenData() const {
-        return !tokenDataPtr && !scriptPubKey.empty() && scriptPubKey[0] == token::PREFIX_BYTE;
-    }
 
     friend bool operator==(const CTxOut &a, const CTxOut &b) noexcept = default;
 

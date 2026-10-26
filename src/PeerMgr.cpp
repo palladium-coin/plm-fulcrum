@@ -67,9 +67,7 @@ PeerMgr::~PeerMgr() { cleanup(); /* noop if already stopped */ DebugM(__func__);
 
 QVariantMap PeerMgr::makeFeaturesDict(PeerClient *c) const
 {
-    const bool isBCH = coin == BTC::Coin::BCH;
-    return Server::makeFeaturesDictForConnection(c, _genesisHash, *options, isBCH,
-                                                 srvmgr->hasSubmitPackageRPC());
+    return Server::makeFeaturesDictForConnection(c, _genesisHash, *options, srvmgr->hasSubmitPackageRPC());
 }
 
 QString PeerMgr::publicHostNameForConnection(PeerClient *c) const

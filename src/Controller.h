@@ -75,14 +75,6 @@ public:
         return c == BTC::Coin::BTC || c == BTC::Coin::PLM;
     }
 
-    /// Thread-safe, lock-free, returns true for BCH. Note: also returns true for "Unknown" coins since we "prefer" BCH
-    /// if we happen to have a regression where the coin info is not propagated from BitcoinDMgr. This is to ensure
-    /// that on BCH, CashTokens always deserialize correctly.
-    bool isBCHCoin() const {
-        const auto type = coinType.load(std::memory_order_relaxed);
-        return type == BTC::Coin::BCH || type == BTC::Coin::Unknown;
-    }
-
 signals:
     /// Emitted in Storage::startup(), after successful DB open
     void dbSuccessfullyOpened();

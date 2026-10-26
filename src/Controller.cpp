@@ -223,7 +223,7 @@ void Controller::startup()
             bitcoin::CMutableTransaction tx;
             constexpr auto kErrLine2 = "Something is wrong with either BitcoinD or our ability to understand its RPC responses.";
             try {
-                BTC::Deserialize(tx, Util::ParseHexFast(resp.result().toByteArray()), 0, isSegWitCoin(), isBCHCoin());
+                BTC::Deserialize(tx, Util::ParseHexFast(resp.result().toByteArray()), 0, isSegWitCoin());
             } catch (const std::exception &e) {
                 Error() << "Failed to deserialize tx #1 with txid " << hash.toHex() << ": " << e.what();
                 Error() << kErrLine2;
@@ -489,7 +489,6 @@ struct DownloadBlocksTask : CtlTask
     std::atomic<size_t> nTx = 0, nIns = 0, nOuts = 0;
 
     const bool allowSegWit; ///< initted in c'tor. If true, deserialize blocks using the optional segwit extensons to the tx format.
-    const bool allowCashTokens; ///< allow special cashtoken deserialization rules (BCH only)
 
     void do_get(unsigned height);
 
@@ -506,7 +505,7 @@ struct DownloadBlocksTask : CtlTask
 DownloadBlocksTask::DownloadBlocksTask(unsigned from, unsigned to, unsigned stride, unsigned nClients, Controller *ctl_)
     : CtlTask(ctl_, QStringLiteral("Task.DL %1 -> %2").arg(from).arg(to)), from(from), to(to), stride(stride),
       expectedCt(unsigned(nToDL(from, to, stride))), max_q(int(nClients)+1),
-      allowSegWit(ctl_->isSegWitCoin()), allowCashTokens(ctl_->isBCHCoin())
+      allowSegWit(ctl_->isSegWitCoin())
 {
     FatalAssert(to >= from && ctl_ && stride > 0, "Invalid params to DonloadBlocksTask c'tor, FIXME!");
     if (stride > 1 || expectedCt > 1) {
@@ -561,7 +560,7 @@ void DownloadBlocksTask::do_get(unsigned int bnum)
                     if (bool sizeOk = header.length() == HEADER_SIZE; sizeOk && (chkHash = BTC::HashRev(header)) == hash) {
                         PreProcessedBlockPtr ppb;
                         try {
-                            const auto cblock = BTC::Deserialize<bitcoin::CBlock>(rawblock, 0, allowSegWit, allowCashTokens);
+                            const auto cblock = BTC::Deserialize<bitcoin::CBlock>(rawblock, 0, allowSegWit);
                             ppb = PreProcessedBlock::makeShared(bnum, hash, size_t(rawblock.size()), cblock);
                         } catch (const std::ios_base::failure &e) {
                             // deserialization error -- check if block is segwit and we are not segwit
@@ -1498,7 +1497,7 @@ auto Controller::debug(const StatsParams &p) const -> Stats // from StatsMixin
     if (const auto hashx = QByteArray::fromHex(p.value("unspent").toLatin1()); hashx.length() == HashLen) {
         QVariantList l;
 
-        const auto items = storage->listUnspent(hashx, Storage::TokenFilterOption::IncludeTokens);
+        const auto items = storage->listUnspent(hashx);
         for (const auto & item : items)
             l.push_back(Server::unspentItemToVariantMap(item));
         ret["unspent_debug"] = l;

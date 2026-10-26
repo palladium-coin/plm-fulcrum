@@ -118,8 +118,7 @@ auto Mempool::addNewTxs(ScriptHashesAffectedSet & scriptHashesAffected,
                 txoInfo = TXOInfo{.amount = out.nValue,
                                   .hashX = sh,
                                   .confirmedHeight = std::nullopt,
-                                  .txNum = 0,
-                                  .tokenDataPtr = out.tokenDataPtr};
+                                  .txNum = 0};
                 auto & utxoset = tx->hashXs[sh].utxo;
                 utxoset.emplace_hint(utxoset.end(), n);
                 hxit->second.push_back(tx); // save tx to hashx -> tx vector (amortized constant time insert at end -- we will sort and uniqueify this at end of this function)
@@ -162,8 +161,7 @@ auto Mempool::addNewTxs(ScriptHashesAffectedSet & scriptHashesAffected,
                                            .arg(prevTXO.toString(), QString(sh.toHex()), QString(tx->hash.toHex())));
                 prevHashXIt->second.utxo.erase(prevN); // remove this spend from utxo set for prevTx in mempool
                 if (TRACE) {
-                    Debug() << hash.toHex() << " unconfirmed spend: " << prevTXO.toString() << " " << refPrevInfo.amount.ToString().c_str()
-                            << (refPrevInfo.tokenDataPtr ? (" " + refPrevInfo.tokenDataPtr->ToString()).c_str() : "");
+                    Debug() << hash.toHex() << " unconfirmed spend: " << prevTXO.toString() << " " << refPrevInfo.amount.ToString().c_str();
                 }
 
                 // link parent to child and child to parent
@@ -625,11 +623,6 @@ QVariantMap Mempool::dumpTx(const TxRef &tx)
                 { "confirmedHeight", info.confirmedHeight ? QVariant(qlonglong(*info.confirmedHeight)) : QVariant()},
                 { "txNum", qlonglong(info.txNum)},
             };
-            if (info.tokenDataPtr) {
-                QByteArray ba;
-                BTC::SerializeTokenDataWithPrefix(ba, info.tokenDataPtr.get());
-                ret.insert("tokenData", ba.toHex());
-            }
             return ret;
         };
         QVariantMap txos;
@@ -825,7 +818,7 @@ namespace {
     std::pair<MPData, bool> loadMempoolDat(const QString &fname) {
         // Below code taken from BCHN validation.cpp, but adopted to also support segwit
         FILE *pfile = std::fopen(fname.toUtf8().constData(), "rb");
-        bitcoin::CAutoFile file(pfile, bitcoin::SER_DISK, bitcoin::PROTOCOL_VERSION | bitcoin::SERIALIZE_TRANSACTION_USE_WITNESS | bitcoin::SERIALIZE_TRANSACTION_USE_CASHTOKENS);
+        bitcoin::CAutoFile file(pfile, bitcoin::SER_DISK, bitcoin::PROTOCOL_VERSION | bitcoin::SERIALIZE_TRANSACTION_USE_WITNESS);
         if (file.IsNull())
             throw Exception(QString("Failed to open mempool file '%1'").arg(fname));
 
@@ -967,7 +960,6 @@ namespace {
             const auto & txout = prevTx->vout.at(txo.outN);
             info.hashX = BTC::HashXFromCScript(txout.scriptPubKey);
             info.amount = txout.nValue;
-            info.tokenDataPtr = txout.tokenDataPtr;
             // NB: we leave .txNum and .confirmedHeight blank for now...
         };
         using PairFutureAndTXOs = std::pair<std::future<QString>, std::vector<TXO>>;

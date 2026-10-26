@@ -66,7 +66,7 @@ struct SynchMempoolTask::Precache {
 
 SynchMempoolTask::SynchMempoolTask(Controller *ctl_, std::shared_ptr<Storage> storage, const std::atomic_bool & notifyFlag)
     : CtlTask(ctl_, "SynchMempool"), storage(storage), notifyFlag(notifyFlag),
-      isSegWit(ctl_->isSegWitCoin()), isCashTokens(ctl_->isBCHCoin()), precache{std::make_unique<Precache>(*this)}
+      isSegWit(ctl_->isSegWitCoin()), precache{std::make_unique<Precache>(*this)}
 {
     scriptHashesAffected.reserve(SubsMgr::kRecommendedPendingNotificationsReserveSize);
     txidsAffected.reserve(SubsMgr::kRecommendedPendingNotificationsReserveSize);
@@ -415,7 +415,7 @@ void SynchMempoolTask::doDLNextTx()
             // deserialize tx, catching any deser errors
             bitcoin::CMutableTransaction ctx;
             try {
-                ctx = BTC::Deserialize<bitcoin::CMutableTransaction>(txdata, 0, isSegWit, isCashTokens, true /* nojunk */);
+                ctx = BTC::Deserialize<bitcoin::CMutableTransaction>(txdata, 0, isSegWit, true /* nojunk */);
             } catch (const std::exception &e) {
                 Error() << "Error deserializing tx: " << tx->hash.toHex() << ", exception: " << e.what();
                 emit errored();

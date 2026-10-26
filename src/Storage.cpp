@@ -260,7 +260,6 @@ namespace {
     struct SHUnspentValue {
         bool valid = false;
         bitcoin::Amount amount;
-        bitcoin::token::OutputDataPtr tokenDataPtr;
     };
 
     // specializations
@@ -271,7 +270,7 @@ namespace {
     template <> TXO Deserialize(const QByteArray &, bool *);
     template <> QByteArray Serialize(const TXOInfo &);
     template <> TXOInfo Deserialize(const QByteArray &, bool *);
-    QByteArray Serialize2(const bitcoin::Amount &, const bitcoin::token::OutputData *);
+    QByteArray Serialize2(const bitcoin::Amount &);
     template <> SHUnspentValue Deserialize(const QByteArray &, bool *);
 
     // TxNumVec
@@ -2186,7 +2185,7 @@ void Storage::checkUpgradeDBVersion()
             if (hdr.size() == BTC::GetBlockHeaderSize()) {
                 const auto bhdr = [&hdr] {
                     try {
-                        return BTC::Deserialize<bitcoin::CBlockHeader>(hdr, 0, false, true, true);
+                        return BTC::Deserialize<bitcoin::CBlockHeader>(hdr, 0, false, true);
                     } catch (const std::ios_base::failure &e) {
                         throw InternalError(QString("checkUpgradeDBVersion: Failed to deserialize the latest block"
                                                     " header: %1").arg(e.what()));
@@ -2878,12 +2877,11 @@ void Storage::loadCheckUTXOsInDB()
                 static const QString errPrefix("Error reading scripthash_unspent");
                 QByteArray tmpBa;
                 SHUnspentValue shval;
-                if (bool fail1 = false, fail2 = false, fail3 = false, fail4 = false, fail5 = false;
+                if (bool fail1 = false, fail2 = false, fail3 = false, fail4 = false;
                         (fail1 = (!info.confirmedHeight.has_value() || qint64(*info.confirmedHeight) > currentHeight))
                         || (fail2 = info.txNum >= p->txNumNext)
                         || (fail3 = (tmpBa = GenericDBGet<QByteArray>(p->db, p->db.shunspent, shuKey, true, errPrefix, false, p->db.defReadOpts).value_or("")).isEmpty())
-                        || (fail4 = (!(shval = Deserialize<SHUnspentValue>(tmpBa)).valid || info.amount != shval.amount))
-                        || (fail5 = (info.tokenDataPtr != shval.tokenDataPtr))) {
+                        || (fail4 = (!(shval = Deserialize<SHUnspentValue>(tmpBa)).valid || info.amount != shval.amount))) {
                     // TODO: reorg? Inconsisent db?  FIXME
                     QString msg;
                     {
@@ -2899,8 +2897,6 @@ void Storage::loadCheckUTXOsInDB()
                             ts << ". Failed to find ctxo " << ctxo.toString() << " in the scripthash_unspent db.";
                         } else if (fail4) {
                             ts << ". Utxo amount does not match the ctxo amount in the scripthash_unspent db.";
-                        } else if (fail5) {
-                            ts << ". Token data does not match the ctxo token_data in the scripthash_unspent db.";
                         }
                         ts << "\n\nThe database has been corrupted. Please delete the datadir and resynch to bitcoind.\n";
                     }
@@ -2980,7 +2976,6 @@ void Storage::loadCheckShunspentInDB()
             info.hashX = hashx;
             info.amount = shuval.amount;
             info.confirmedHeight = heightForTxNum(ctxo.txNum());
-            info.tokenDataPtr = std::move(shuval.tokenDataPtr);
         }
         const TxHash txHash = hashForTxNum(ctxo.txNum(), true, nullptr, true).value_or(QByteArray()); // throws if missing
         const TXO txo{txHash, ctxo.N()};
@@ -3135,7 +3130,7 @@ Storage::UTXOBatch::UTXOBatch(UTXOBatch &&o) { p.swap(o.p); }
 void Storage::UTXOBatch::add(TXO &&txo, TXOInfo &&info, const CompactTXO &ctxo)
 {
     const QByteArray shukey = mkShunspentKey(info.hashX, ctxo),
-                     shuval = Serialize2(info.amount, info.tokenDataPtr.get());
+                     shuval = Serialize2(info.amount);
     // Update db utxoset, keyed off txo -> txoinfo
     static const QString errMsgPrefix("Failed to add a utxo to the utxo batch");
     GenericBatchPut(p->batch, &p->utxoset, txo, info, errMsgPrefix); // may throw on failure
@@ -3174,7 +3169,6 @@ std::optional<TXOInfo> Storage::utxoGetFromDB(const TXO &txo, bool throwIfMissin
 
 int64_t Storage::utxoSetSize() const { return p->utxoCt; }
 double Storage::utxoSetSizeMB() const {
-    // TODO: the below is inaccurate because it does not account for any bitcoin::token::OutputDataPtr that may be in TXOInfo
     constexpr int64_t elemSize = TXOInfo::minSerSize() + TXO::minSize() /*<-- assumption is most utxos use 16-bit IONums */;
     return (utxoSetSize()*elemSize) / 1e6;
 }
@@ -3395,7 +3389,6 @@ void Storage::addBlock(PreProcessedBlockPtr ppb, bool saveUndo, unsigned nReserv
                                 .hashX = hashX,
                                 .confirmedHeight = ppb->height,
                                 .txNum = blockTxNum0 + out.txIdx,
-                                .tokenDataPtr = out.tokenDataPtr,
                             };
                             const CompactTXO ctxo(info.txNum, txo.outN);
                             if (undo) { // save undo info if we are in saveUndo mode
@@ -4104,28 +4097,12 @@ auto Storage::getHistory(const HashX & hashX, bool conf, bool unconf, BlockHeigh
     return ret;
 }
 
-static bool ShouldTokenFilter(const Storage::TokenFilterOption tokenFilter, const bitcoin::token::OutputDataPtr & p)
-{
-    switch (tokenFilter) {
-    case Storage::TokenFilterOption::ExcludeTokens:
-        return bool(p);
-    case Storage::TokenFilterOption::IncludeTokens:
-        return false;
-    case Storage::TokenFilterOption::OnlyTokens:
-        return !p;
-    }
-    // not normally reached unless there's a programming error of some sort
-    throw InternalError(QString("Invalid TokenFilterOption encountered: %1. This shouldn't happen! FIXME!")
-                        .arg(int(tokenFilter)));
-}
-
-auto Storage::listUnspent(const HashX & hashX, const TokenFilterOption tokenFilter) const -> UnspentItems
+auto Storage::listUnspent(const HashX & hashX) const -> UnspentItems
 {
     UnspentItems ret;
     if (hashX.length() != HashLen)
         return ret;
     try {
-        auto ShouldFilter = [tokenFilter](const bitcoin::token::OutputDataPtr & p) { return ShouldTokenFilter(tokenFilter, p); };
         auto IncrementCtrAndThrowIfExceedsMaxHistory = GetMaxHistoryCtrFunc("Unspent UTXOs",
                                                                             QString("scripthash %1").arg(QString(hashX.toHex())),
                                                                             options->maxHistory);
@@ -4163,14 +4140,11 @@ auto Storage::listUnspent(const HashX & hashX, const TokenFilterOption tokenFilt
                                 if (decltype(tx->txos.cbegin()) it3;
                                         ionum < tx->txos.size() && (it3 = tx->txos.cbegin() + ionum)->isValid()) [[likely]]
                                 {
-                                    if (ShouldFilter(it3->tokenDataPtr))
-                                        continue;
                                     ret.push_back(UnspentItem{
                                         { tx->hash, 0 /* always put 0 for height here */, tx->fee }, // base HistoryItem
                                         ionum, // .tx_pos
                                         it3->amount,  // .value
                                         TxNum(1) + veryHighTxNum + TxNum(tx->hasUnconfirmedParents() ? 1 : 0), // .txNum (this is fudged for sorting at the end properly)
-                                        it3->tokenDataPtr, // .token_data
                                     });
                                 } else {
                                     // this should never happen!
@@ -4214,8 +4188,6 @@ auto Storage::listUnspent(const HashX & hashX, const TokenFilterOption tokenFilt
                         throw InternalError(QString("Out-of-range amount in db for ctxo %1, script_hash %2: %3")
                                             .arg(ctxo.toString(), QString(hashX.toHex())).arg(shval.amount / shval.amount.satoshi()));
                     }
-                    if (ShouldFilter(shval.tokenDataPtr))
-                        continue;
                     auto ctxo = extractCompactTXOFromShunspentKey(key, false); /* may throw if size is bad, etc */
                     ctxoVec.emplace_back(std::move(ctxo), std::move(shval));
                 }
@@ -4232,7 +4204,6 @@ auto Storage::listUnspent(const HashX & hashX, const TokenFilterOption tokenFilt
                         txo.outN, // .tx_pos
                         shval.amount, // .value
                         ctxo.txNum(), // .txNum
-                        std::move(shval.tokenDataPtr), // .token_data
                     });
                 }
             } // end confirmed/db search
@@ -4249,12 +4220,11 @@ auto Storage::listUnspent(const HashX & hashX, const TokenFilterOption tokenFilt
     return ret;
 }
 
-auto Storage::getBalance(const HashX &hashX, TokenFilterOption tokenFilter) const -> std::pair<bitcoin::Amount, bitcoin::Amount>
+auto Storage::getBalance(const HashX &hashX) const -> std::pair<bitcoin::Amount, bitcoin::Amount>
 {
     std::pair<bitcoin::Amount, bitcoin::Amount> ret;
     if (hashX.length() != HashLen)
         return ret;
-    auto ShouldFilter = [tokenFilter](const bitcoin::token::OutputDataPtr & p) { return ShouldTokenFilter(tokenFilter, p); };
     auto IncrementCtrAndThrowIfExceedsMaxHistory = GetMaxHistoryCtrFunc("GetBalance UTXOs",
                                                                         QString("scripthash %1").arg(QString(hashX.toHex())),
                                                                         options->maxHistory);
@@ -4274,14 +4244,12 @@ auto Storage::getBalance(const HashX &hashX, TokenFilterOption tokenFilter) cons
                 IncrementCtrAndThrowIfExceedsMaxHistory(); // throw if we are iterating too much
                 const CompactTXO ctxo = extractCompactTXOFromShunspentKey(key, false); // may throw if key has the wrong size, etc
                 bool ok;
-                const auto & [valid, amount, tokenDataPtr] = Deserialize<SHUnspentValue>(FromSlice(iter->value()), &ok);
+                const auto & [valid, amount] = Deserialize<SHUnspentValue>(FromSlice(iter->value()), &ok);
                 if (!ok || !valid) [[unlikely]]
                     throw InternalError(QString("Bad SHUnspentValue in db for ctxo %1 (%2)").arg(ctxo.toString(), QString(hashX.toHex())));
                 if (!bitcoin::MoneyRange(amount)) [[unlikely]]
                     throw InternalError(QString("Out-of-range amount in db for ctxo %1: %2").arg(ctxo.toString()).arg(amount / amount.satoshi()));
-                if ( ! ShouldFilter(tokenDataPtr)) {
-                    ret.first += amount; // tally the result
-                }
+                ret.first += amount; // tally the result
             }
             if (!bitcoin::MoneyRange(ret.first)) [[unlikely]] {
                 ret.first = bitcoin::Amount::zero();
@@ -4304,8 +4272,7 @@ auto Storage::getBalance(const HashX &hashX, TokenFilterOption tokenFilter) cons
                     auto & info = it2->second;
                     IncrementCtrAndThrowIfExceedsMaxHistory(info.confirmedSpends.size() + info.utxo.size()); // throw if >maxHistory
                     for (const auto & [txo, txoinfo] : info.confirmedSpends) {
-                        if ( ! ShouldFilter(txoinfo.tokenDataPtr))
-                            spends += txoinfo.amount;
+                        spends += txoinfo.amount;
                     }
                     for (const auto ionum : info.utxo) {
                         if (decltype(tx->txos.cbegin()) it3; ionum >= tx->txos.size()
@@ -4313,7 +4280,7 @@ auto Storage::getBalance(const HashX &hashX, TokenFilterOption tokenFilter) cons
                         {
                             throw InternalError(QString("scripthash %1 lists tx %2, which then lacks a valid TXO IONum %3 for said hashX! FIXME!")
                                                 .arg(QString(hashX.toHex()), QString(tx->hash.toHex())).arg(ionum));
-                        } else if ( ! ShouldFilter(it3->tokenDataPtr)) {
+                        } else {
                             utxos += it3->amount;
                         }
                     }
@@ -4410,12 +4377,12 @@ bool Storage::HistoryItem::operator==(const HistoryItem &o) const noexcept {
     return std::tie(height, hash) == std::tie(o.height, o.hash);
 }
 bool Storage::UnspentItem::operator<(const UnspentItem &o) const noexcept {
-    return    std::tie(  txNum,   tx_pos,   value,   tokenDataPtr,   height,   hash)
-            < std::tie(o.txNum, o.tx_pos, o.value, o.tokenDataPtr, o.height, o.hash);
+    return    std::tie(  txNum,   tx_pos,   value,   height,   hash)
+            < std::tie(o.txNum, o.tx_pos, o.value, o.height, o.hash);
 }
 bool Storage::UnspentItem::operator==(const UnspentItem &o) const noexcept {
-    return    std::tie(  txNum,   tx_pos,   value,   tokenDataPtr,   height,   hash)
-           == std::tie(o.txNum, o.tx_pos, o.value, o.tokenDataPtr, o.height, o.hash);
+    return    std::tie(  txNum,   tx_pos,   value,   height,   hash)
+           == std::tie(o.txNum, o.tx_pos, o.value, o.height, o.hash);
 }
 
 auto Storage::mempool() const -> std::pair<const Mempool &, SharedLockGuard>
@@ -5065,10 +5032,8 @@ namespace {
         return ret;
     }
 
-    QByteArray Serialize2(const bitcoin::Amount &a, const bitcoin::token::OutputData *ptok) {
-        QByteArray ret = SerializeScalar(a / a.satoshi());
-        BTC::SerializeTokenDataWithPrefix(ret, ptok); // may be no-op if ptok is nullptr
-        return ret;
+    QByteArray Serialize2(const bitcoin::Amount &a) {
+        return SerializeScalar(a / a.satoshi());
     }
     template <> SHUnspentValue Deserialize(const QByteArray &ba, bool *pok) {
         QByteArray::size_type pos = 0;
@@ -5077,13 +5042,10 @@ namespace {
         SHUnspentValue ret;
         if (ok) {
             ret.amount = amt * bitcoin::Amount::satoshi();
-            try {
-                ret.tokenDataPtr = BTC::DeserializeTokenDataWithPrefix(ba, pos);
-            } catch (const std::exception &e) {
+            if (pos != ba.size()) // junk at the end
                 throw DatabaseSerializationError(
-                    QString("Got exception deserializing token data in Storage.cpp::Deserialize(): %1 (from bytes: %2)")
-                    .arg(e.what(), ba.mid(pos).toHex().constData()));
-            }
+                    QString("Got unexpected trailing data deserializing a scripthash_unspent value in Storage.cpp::Deserialize(): %1")
+                    .arg(ba.mid(pos).toHex().constData()));
         }
         if (pok) *pok = ok;
         ret.valid = ok;

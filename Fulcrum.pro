@@ -448,7 +448,6 @@ RESOURCES += \
     resources.qrc
 
 contains(DEFINES, ENABLE_TESTS) {
-    RESOURCES += resources/testdata/testdata.qrc
     HEADERS += \
         tests/Tests.h
     SOURCES += \
@@ -483,7 +482,6 @@ SOURCES += \
     bitcoin/script_standard.cpp \
     bitcoin/sigencoding.cpp \
     bitcoin/test.cpp \
-    bitcoin/token.cpp \
     bitcoin/transaction.cpp \
     bitcoin/uint256.cpp \
     bitcoin/utilstrencodings.cpp \
@@ -526,7 +524,6 @@ HEADERS += \
     bitcoin/sighashtype.h \
     bitcoin/streams.h \
     bitcoin/tinyformat.h \
-    bitcoin/token.h \
     bitcoin/transaction.h \
     bitcoin/txid.h \
     bitcoin/uint256.h \
