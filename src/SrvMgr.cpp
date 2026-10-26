@@ -602,4 +602,3 @@ void SrvMgr::globalSubsLimitReached()
     });
 }
 
-bool SrvMgr::hasSubmitPackageRPC() const { return bitcoindmgr && bitcoindmgr->getRpcSupportInfo().hasSubmitPackageRPC; }

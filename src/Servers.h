@@ -283,7 +283,7 @@ protected:
     /// any errors to the client. The `work` functor may throw RPCError, in which case code and message will be
     /// sent instead.  Note that all other exceptions also end up sent to the client as "internal error: MESSAGE".
     /// The optional `CompletionFunc` is used if you want to override the default behavior of sending results to
-    /// the client to do additional processing (see rpc_blockchain_transaction_broadcast_package for example).
+    /// the client to do additional processing.
     template <std::invocable WorkFunc, typename CompletionFunc = std::nullptr_t>
     requires
         // WorkFunc must not return void
@@ -326,7 +326,6 @@ protected:
     /// If true we are on the BTC or PLM chains.
     bool isNonBCH() const { return coin != BTC::Coin::BCH; }
     bool isPLM() const { return coin == BTC::Coin::PLM; }
-    bool isBTC() const { return coin == BTC::Coin::BTC; }
 
 
     // --- Helpers used by Server* and AdminServer subclasses ---
@@ -362,8 +361,7 @@ public:
     /// which also needs a features dict when *it* calls add_peer on peer servers.
     /// NOTE: Be sure to only ever call this function from the same thread as the AbstractConnection (first arg) instance!
     static QVariantMap makeFeaturesDictForConnection(AbstractConnection *, const QByteArray &genesisHash,
-                                                     const Options & options,
-                                                     bool hasBroadcastPackage);
+                                                     const Options & options);
 
     virtual QString prettyName() const override;
 
@@ -422,7 +420,6 @@ private:
     void rpc_blockchain_scripthash_get_status(Client *, RPC::BatchId, const RPC::Message &); // Fulcrum 2.1.1 or above
     // transaction
     void rpc_blockchain_transaction_broadcast(Client *, RPC::BatchId, const RPC::Message &); // fully implemented
-    void rpc_blockchain_transaction_broadcast_package(Client *, RPC::BatchId, const RPC::Message &); // protocol v1.6.0
     void rpc_blockchain_transaction_get(Client *, RPC::BatchId, const RPC::Message &); // fully implemented
     void rpc_blockchain_transaction_get_confirmed_blockhash(Client *, RPC::BatchId, const RPC::Message &); // protocol v1.5.2
     void rpc_blockchain_transaction_get_height(Client *, RPC::BatchId, const RPC::Message &); // fully implemented

@@ -568,10 +568,7 @@ void DownloadBlocksTask::do_get(unsigned int bnum)
                                 try {
                                     const auto cblock2 = BTC::DeserializeSegWit<bitcoin::CBlock>(rawblock);
                                     // If we get here the block deserialized ok as segwit but not ok as non-segwit.
-                                    // We must assume that there is some misconfiguration e.g. the remote is BTC
-                                    // but DB is not expecting BTC. This can happen if user is using non-Satoshi
-                                    // bitcoind with BTC.  We only support /Satoshi... as uagent for BTC due to the
-                                    // way that our auto-detection works.
+                                    // We must assume that there is some misconfiguration (the DB is not expecting SegWit).
                                     if (std::any_of(cblock2.vtx.begin(), cblock2.vtx.end(),
                                                     [](const auto &tx){ return tx->HasWitness(); }))
                                         throw InternalError("SegWit block encountered for non-SegWit coin."

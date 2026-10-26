@@ -198,7 +198,7 @@ BitcoinD *BitcoinDMgr::getBitcoinD()
 
 namespace {
     struct BitcoinDVersionParseResult {
-        bool isCore{}, isPLM{};
+        bool isPLM{};
         Version version;
 
         constexpr BitcoinDVersionParseResult() noexcept = default;
@@ -207,7 +207,6 @@ namespace {
 
     BitcoinDVersionParseResult::BitcoinDVersionParseResult(unsigned val, const QString &subversion) {
         // e.g. 0.20.6 comes in like this from bitcoind (as an unsigned int): 200600 (millions, 10-thousands, hundreds).
-        isCore = subversion.startsWith("/Satoshi:"); // this matches Bitcoin Knots as well
         isPLM = subversion.startsWith("/Palladium:");
         // "version" is reliable and always the same format
         version = Version::BitcoinDCompact(val);
@@ -242,27 +241,13 @@ void BitcoinDMgr::refreshBitcoinDNetworkInfo()
                     }
                 }(bitcoinDInfo.subversion, networkInfo);
                 // assign to shared object now from stack object BitcoinDVersionParseResult
-                std::tie(bitcoinDInfo.isCore, bitcoinDInfo.isPLM, bitcoinDInfo.version)
-                    = std::tie(res.isCore, res.isPLM, res.version);
+                std::tie(bitcoinDInfo.isPLM, bitcoinDInfo.version) = std::tie(res.isPLM, res.version);
                 bitcoinDInfo.relayFee = networkInfo.value("relayfee", 0.0).toDouble();
                 bitcoinDInfo.warnings = networkInfo.value("warnings", "").toString();
                 auto & rsi = bitcoinDInfo.rpcSupportInfo;
-                rsi.hasEstimateSmartFee = (res.isCore || res.isPLM) && bitcoinDInfo.version >= Version{0, 15, 0};
-                rsi.isTwoArgEstimateSmartFee = (res.isCore || res.isPLM) && bitcoinDInfo.version >= Version{0, 16, 0};
+                rsi.hasEstimateSmartFee = res.isPLM && bitcoinDInfo.version >= Version{0, 15, 0};
+                rsi.isTwoArgEstimateSmartFee = res.isPLM && bitcoinDInfo.version >= Version{0, 16, 0};
                 rsi.lacksGetZmqNotifications = false; // until proven otherwise by an RPC error (see refreshBitcoinDZmqNotifications)
-                // Bitcoin Core 25.0+ requires specifying `maxburnamount` in the `sendrawtransaction` RPC
-                // (which, due to bitcoin core weirdness in how it encodes the version int, maps to Version{0, 25, 0}
-                rsi.sendRawTransactionRequiresMaxBurnAmount = res.isCore && bitcoinDInfo.version >= Version{0, 25, 0};
-                // The `submitpackage` RPC is only present in a form usable by us on Bitcoin Core >= 27.0.0, but it was
-                // almost worthless on 27.0.0 (according to ElectrumX devs), and so we require 28.0.0.
-                // See: https://github.com/spesmilo/electrum-protocol/pull/6/files#r2459860616
-                rsi.hasSubmitPackageRPC = res.isCore && bitcoinDInfo.version >= Version{0, 28, 0};
-                if (res.isCore && !rsi.hasSubmitPackageRPC) // warn admin about lack of submitpackage support
-                    Warning() << "*** Compatibility Warning *** The BTC full node backing this " APPNAME " instance"
-                                 " lacks a known-good `submitpackage` RPC, which is needed for full Electrum protocol"
-                                 " v1.6 support. Disabling the `blockchain.transaction.broadcast_package` method out of"
-                                 " an abundance of caution. Consider upgrading your full node to either Bitcoin Core or"
-                                 " Bitcoin Knots version 28.0.0 or above.";
             } // end lock scope
             // be sure to announce whether remote bitcoind is bitcoin core (this determines whether we use segwit or not)
             // PLM is the only supported coin; refuse to run against any other node rather than guessing (e.g. BCH)
@@ -971,9 +956,6 @@ QVariantMap BitcoinDInfo::toVariantMap() const
     ret["hasEstimateSmartFee"] = rpcSupportInfo.hasEstimateSmartFee;
     ret["isTwoArgEstimateSmartFee"] = rpcSupportInfo.isTwoArgEstimateSmartFee;
     ret["lacksGetZmqNotifications"] = rpcSupportInfo.lacksGetZmqNotifications;
-    ret["sendRawTransactionRequiresMaxBurnAmount"] = rpcSupportInfo.sendRawTransactionRequiresMaxBurnAmount;
-    ret["hasSubmitPackageRPC"] = rpcSupportInfo.hasSubmitPackageRPC;
-    ret["isCore"] = isCore;
     ret["isPLM"] = isPLM;
     QVariantList zmqs;
     for (auto it = zmqNotifications.begin(); it != zmqNotifications.end(); ++it)

@@ -180,7 +180,7 @@ private:
     std::atomic_bool masterNotifySubsFlag = false;
 
     /// Comes from DB. If DB had no entry (newly initialized DB), then we update this variable whe we first connect
-    /// to the BitcoinD.  We look for "/Satoshi..." in the useragen to set BTC, otherwise everything else is BCH.
+    /// to the BitcoinD.  The only supported node is /Palladium:... (PLM).
     std::atomic<BTC::Coin> coinType = BTC::Coin::Unknown;
 
     /// takes locks, prints to Log() every 30 seconds if there were changes

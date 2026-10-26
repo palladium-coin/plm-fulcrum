@@ -82,10 +82,6 @@ public:
     /// Thread-Safe. Like the above but returns an invalid shared_ptr if the per-IP data for address does not exist.
     std::shared_ptr<Client::PerIPData> findExistingPerIPData(const QHostAddress &address) { return perIPData.getOrCreate(address, false); }
 
-    /// Thread-Safe. Returns whether bitcoind currently probes as having the submitpackage RPC.
-    /// This just forwards the call to BitcoinDMgr::getRpcSupportInfo.hasSubmitPackageRPC.
-    bool hasSubmitPackageRPC() const;
-
 signals:
     /// Notifies all blockchain.headers.subscribe'd clients for the entire server about a new header.
     /// (normally connected to the Controller::newHeader signal).

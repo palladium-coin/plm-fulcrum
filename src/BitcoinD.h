@@ -53,11 +53,8 @@ struct BitcoinDInfo {
         bool hasEstimateSmartFee = false; ///< true if remote bitcoind supports estimatesmartfee. (Bitcoin Core >= 0.15.0)
         bool isTwoArgEstimateSmartFee = false; ///< if true, estimatesmartfee has an optional second parameter "mode" (Bitcoin Core >= 0.16.0)
         bool lacksGetZmqNotifications = false; ///< true if we got an RPC error the last time we queried
-        bool sendRawTransactionRequiresMaxBurnAmount = false; ///< true if the `sendrawtransaction` RPC requires 2 extra args. Bitcoin Core >= 25.0.0 only.
-        bool hasSubmitPackageRPC = false; ///< true if the `submitpackage` RPC method exists and is what we expect. Bitcoin Core >= 28.0.0 only.
     };
     RpcSupportInfo rpcSupportInfo;
-    bool isCore = false; ///< true if we are actually connected to /Satoshi.. node (Bitcoin Core)
     bool isPLM = false; ///< true if we are connected to a /Palladium:.. node (Palladium, PLM)
 
     /// The below field is populated from bitcoind RPC `getzmqnotifications` (if supported and if we are compiled to
@@ -141,9 +138,8 @@ signals:
     /// the argument.
     void inWarmUp(const QString &);
 
-    /// Emitted as soon as we read the bitcoind subversion. If it starts with /Satoshi:.., we emit this
-    /// with Coin::BTC, if subversion is /Palladium:... we emit Coin::PLM, otherwise, we emit it with
-    /// Coin::BCH.
+    /// Emitted as soon as we read the bitcoind subversion. Emitted with Coin::PLM when the
+    /// subversion is /Palladium:...; any other node is refused.
     void coinDetected(BTC::Coin);
 
     /// Emitted whenever the BitcoinDZmqNotifications change (this is also emitted the first time we retrieve them
