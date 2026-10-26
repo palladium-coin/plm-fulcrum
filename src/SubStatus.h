@@ -18,8 +18,9 @@
 //
 #pragma once
 
-#include "bitcoin/heapoptional.h"
-#include "DSProof.h"
+#include "BlockProcTypes.h"
+#include "Compat.h" /* for QByteArray operator<=> */
+#include "Util.h"
 
 #include <QByteArray>
 #include <QMetaType>
@@ -35,7 +36,7 @@
 #include <variant>
 
 /// This class is sort of like a variant/optional combination. It can store either "No Value" (!.has_value()) or
-/// either a: QByteArray, DSProof or a std::optional<BlockHeight>. It is optimized for minimal memory usage in the
+/// either a: QByteArray or a std::optional<BlockHeight>. It is optimized for minimal memory usage in the
 /// common case -- taking up as much memory as a std::optional<QByteArray> (16 bytes on 64-bit).
 ///
 /// It is intended to be used with the SubsMgr and its subclasses.
@@ -43,22 +44,18 @@
 /// - ScriptHashSubsMgr::getFullStatus() always returns one of these objects with the QByteArray as the active value,
 ///   that is, byteArray() will always be valid pointer.
 ///
-/// - DSProofSubsMgr::getFullStatus() always returns one of these objects with the DSProof as the active value,
-///   that is, dsproof() will always be a valid pointer.
-///
 /// - TransactionSubsMgr::getFullStatus() always returns one of these objects with the std::optional<BlockHeight> as
 ///   the active value, that is, blockHeight() will always be a valid optional (even if it itself !has_value()).
 ///
 class SubStatus {
     using NoValue = std::monostate;
     using QBA = QByteArray;
-    using DSP = bitcoin::HeapOptional<DSProof>;
     // we "simulate" a std::optional<BlockHeight> in this class to save memory, by making values out of the uint32_t
     // range act "as if" !block_height.has_value()
     using BH = int64_t;
     static_assert(std::is_same_v<uint32_t, BlockHeight>);
 
-    std::variant<NoValue, QBA, DSP, BH> var;
+    std::variant<NoValue, QBA, BH> var;
 
     static constexpr bool isValidBlockHeight(BH bh) noexcept {
         return    bh >= static_cast<BH>(std::numeric_limits<BlockHeight>::min())
@@ -73,8 +70,6 @@ public:
     SubStatus(const SubStatus &o) = default;
     SubStatus(const QByteArray &oq) noexcept : var{oq} {}
     SubStatus(QByteArray &&oq) noexcept : var{std::move(oq)} {}
-    SubStatus(const DSProof &od) { var.emplace<DSP>(od); }
-    SubStatus(DSProof &&od) { var.emplace<DSP>(std::move(od)); }
     SubStatus(const std::optional<BlockHeight> &obh) noexcept { this->operator=(obh); }
     SubStatus(BlockHeight bh) noexcept : var{static_cast<BH>(bh)} {}
 
@@ -82,8 +77,6 @@ public:
     SubStatus &operator=(SubStatus && o) = default;
     SubStatus &operator=(const QByteArray &oq) { var = oq; return *this; }
     SubStatus &operator=(QByteArray &&oq) { var = std::move(oq); return *this; }
-    SubStatus &operator=(const DSProof &od) { var.emplace<DSP>(od); return *this; }
-    SubStatus &operator=(DSProof &&od) { var.emplace<DSP>(std::move(od)); return *this; }
     SubStatus &operator=(const std::optional<BlockHeight> &obh) {
         static_assert(!isValidBlockHeight(InvalidBlockHeight)); /* We are forced to put this assertion here rather than
                                                                    at class-level due to C++ compile-time quirks. */
@@ -100,11 +93,6 @@ public:
 
     const QByteArray * byteArray() const noexcept { return std::get_if<QBA>(&var); }
 
-    const DSProof * dsproof() const noexcept {
-        auto *pdsp = std::get_if<DSP>(&var);
-        return pdsp ? pdsp->get() : nullptr;
-    }
-
     std::optional<BlockHeight> blockHeight() const noexcept {
         if (auto *p = std::get_if<BH>(&var); p && isValidBlockHeight(*p))
             return static_cast<BlockHeight>(*p);
@@ -112,7 +100,7 @@ public:
     }
 
     /// Render this for JSON RPC (as a status result for notifications).  If !has_value() then it will be null,
-    /// otherwise if it has a valid value it will be rendered as a string, or a dsproof object, or a number.
+    /// otherwise if it has a valid value it will be rendered as a string or a number.
     /// Note that even if has_value(), this may still be a QVariant() (null).
     QVariant toVariant() const;
 };
@@ -121,7 +109,6 @@ public:
 template <> struct std::hash<SubStatus> {
     std::size_t operator()(const SubStatus &s) const {
         if (auto *ba = s.byteArray(); ba) return HashHasher{}(*ba);
-        else if (auto *dsp = s.dsproof(); dsp) return DspHash::Hasher{}(dsp->hash);
         else if (auto bh = s.blockHeight(); bh) return Util::hashForStd(*bh);
         return 0; // !this->has_value() and/or !bh->has_value() hashes to 0 always
     }

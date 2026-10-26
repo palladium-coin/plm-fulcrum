@@ -555,7 +555,7 @@ void SrvMgr::globalSubsLimitReached()
                     [this, ctr=int(0)]() mutable {
         ++ctr; // increment counter for how many times this callback has executed
         // grab flags to get an idea of the state of the limits
-        const auto [activeNearLimit, allNearLimit] = storage->subs()->globalSubsLimitFlags(); // both this and dspSubs() will return the same bools here, so we just grab one
+        const auto [activeNearLimit, allNearLimit] = storage->subs()->globalSubsLimitFlags(); // both this and txSubs() will return the same bools here, so we just grab one
 
         // request a zombie removal on return
         Defer deferred = [this, allNearLimit=allNearLimit /*<- C++ bugs */] {
@@ -564,7 +564,6 @@ void SrvMgr::globalSubsLimitReached()
                 DebugM("Requesting zombie sub removal in ", when, " msec ...");
                 // we do it with a delay to give the kick code time to run.
                 emit storage->subs()->requestRemoveZombiesSoon(when);
-                emit storage->dspSubs()->requestRemoveZombiesSoon(when);
                 emit storage->txSubs()->requestRemoveZombiesSoon(when);
             }
         };
@@ -603,6 +602,4 @@ void SrvMgr::globalSubsLimitReached()
     });
 }
 
-/// Thread-Safe. Returns whether bitcoind currently probes as having the dsproof RPC.
-bool SrvMgr::hasDSProofRPC() const { return bitcoindmgr && bitcoindmgr->getRpcSupportInfo().hasDSProofRPC; }
 bool SrvMgr::hasSubmitPackageRPC() const { return bitcoindmgr && bitcoindmgr->getRpcSupportInfo().hasSubmitPackageRPC; }

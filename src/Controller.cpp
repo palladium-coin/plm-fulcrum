@@ -20,7 +20,6 @@
 #include "BlockProc.h"
 #include "BTC.h"
 #include "Controller.h"
-#include "Controller/SynchDSPsTask.h"
 #include "Controller/SynchMempoolTask.h"
 #include "CoTask.h"
 #include "Mempool.h"
@@ -782,7 +781,6 @@ struct Controller::StateMachine
         End, Failure, BitcoinDIsInHeaderDL,
         Retry, RetryInIBD,
         SynchMempool, SynchingMempool, SynchMempoolFinished,
-        SynchDSPs, SynchingDSPs, SynchDSPsFinished, // happens after synch mempool; only reached if bitcoind has the dsproof rpc
     };
     State state = Begin;
     bool suppressSaveUndo = false; ///< true if bitcoind is in IBD, in which case we don't save undo info.
@@ -1318,38 +1316,9 @@ void Controller::process(bool beSilentIfUpToDate)
             AGAIN();
         });
         sm->state = State::SynchingMempool;
-    } else if (sm->state == State::SynchDSPs) {
-        auto task = newTask<SynchDSPsTask>(false, this, storage, masterNotifySubsFlag);
-        task->threadObjectDebugLifecycle = Trace::isEnabled(); // suppress verbose lifecycle prints unless trace mode
-        connect(task, &CtlTask::success, this, [this, task]{
-            if (!sm || isTaskDeleted(task) || sm->state != State::SynchingDSPs) [[unlikely]]
-                // task was stopped from underneath us and/or this response is stale.. so return and ignore
-                return;
-            sm->state = State::SynchDSPsFinished;
-            AGAIN();
-        });
-        // synch mempool task is an optional task, not critical. tolerate errors as if they were successes
-        connect(task, &CtlTask::errored, this, [this, task]{
-            if (!sm || isTaskDeleted(task) || sm->state != State::SynchingDSPs) [[unlikely]]
-                // task was stopped from underneath us and/or this response is stale.. so return and ignore
-                return;
-            Warning() << "SynchDSPs RPC error, ignoring...";
-            sm->state = State::SynchDSPsFinished;
-            AGAIN();
-        });
-        sm->state = State::SynchingDSPs;
-    } else if (sm->state == State::SynchingMempool || sm->state == State::SynchingDSPs) {
+    } else if (sm->state == State::SynchingMempool) {
         // ... nothing..
     } else if (sm->state == State::SynchMempoolFinished) {
-        // ...
-        if (bitcoindmgr->getRpcSupportInfo().hasDSProofRPC)
-            sm->state = State::SynchDSPs; // remote bitcoind has dsproof rpc, proceed to synch dsps
-        else {
-            emit synchedMempool();
-            sm->state = State::End; // remote bitcoind lacks dsproof rpc, finish successfully
-        }
-        AGAIN();
-    } else if (sm->state == State::SynchDSPsFinished) {
         // ...
         emit synchedMempool();
         sm->state = State::End;
@@ -1737,7 +1706,6 @@ auto Controller::stats() const -> Stats
     misc["Job Queue (Thread Pool)"] = ::AppThreadPool()->stats();
     st["Misc"] = misc;
     st["SubsMgr"] = storage->subs()->statsSafe(kDefaultTimeout/2);
-    st["SubsMgr (DSPs)"] = storage->dspSubs()->statsSafe(kDefaultTimeout/4);
     st["SubsMgr (Txs)"] = storage->txSubs()->statsSafe(kDefaultTimeout/4);
     // Config (Options) map
     st["Config"] = options->toMap();
@@ -1814,10 +1782,6 @@ auto Controller::debug(const StatsParams &p) const -> Stats // from StatsMixin
     if (p.contains("subs")) {
         const auto timeLeft = kDefaultTimeout - (Util::getTime() - t0/1000000) - 50;
         ret["subscriptions"] = storage->subs()->debugSafe(p, std::max(5, int(timeLeft)));
-    }
-    if (p.contains("dspsubs")) {
-        const auto timeLeft = kDefaultTimeout - (Util::getTime() - t0/1000000) - 50;
-        ret["subscriptions (DSProof)"] = storage->dspSubs()->debugSafe(p, std::max(5, int(timeLeft)));
     }
     if (p.contains("txsubs")) {
         const auto timeLeft = kDefaultTimeout - (Util::getTime() - t0/1000000) - 50;

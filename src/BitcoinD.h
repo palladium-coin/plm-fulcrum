@@ -54,7 +54,6 @@ struct BitcoinDInfo {
         bool hasEstimateSmartFee = false; ///< true if remote bitcoind supports estimatesmartfee. (Bitcoin Core >= 0.15.0)
         bool isTwoArgEstimateSmartFee = false; ///< if true, estimatesmartfee has an optional second parameter "mode" (Bitcoin Core >= 0.16.0)
         bool lacksGetZmqNotifications = false; ///< true if bchd or BU < 1.9.1.0, or if we got an RPC error the last time we queried
-        bool hasDSProofRPC = false; ///< true if the RPC query to `getdsprooflist` didn't return an error.
         bool sendRawTransactionRequiresMaxBurnAmount = false; ///< true if the `sendrawtransaction` RPC requires 2 extra args. Bitcoin Core >= 25.0.0 only.
         bool hasSubmitPackageRPC = false; ///< true if the `submitpackage` RPC method exists and is what we expect. Bitcoin Core >= 28.0.0 only.
     };
@@ -208,8 +207,6 @@ private:
     /// called whenever bitcoind comes back alive, updates bitcoinDInfo.zmqNotifications (only called if we are compiled with zmq support)
     void refreshBitcoinDZmqNotifications();
 
-    /// called whenever bitcoind comes back alive, updates bitcoinDInfo.hasDSProofRPC
-    void probeBitcoinDHasDSProofRPC();
 
     /// called whenever bitcoind comes back alive, detects whether bitcoind has the 'uptime' RPC call. And if so,
     /// emits detectedFastPingMethod(true), otherwise emits detectedFastPingMethod(false) if it lacks the RPC.
@@ -243,8 +240,6 @@ private:
     /// Used to unconditionally emit the signal the first time through, even if we got an empty map.
     bool setZmqNotificationsWasNeverCalled = true;
 
-    /// dsproof rpc setter -- called internally by probeBitcoinDHasDSProofRPC
-    void setHasDSProofRPC(bool);
 
     /// Mechanism to cache the last-known response from bitcoind's RPC calls (used for RPC calls such as getmempoolinfo that don't need to be super-up-to-date)
     struct CachedResult {

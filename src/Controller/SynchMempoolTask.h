@@ -58,8 +58,6 @@ private:
 
     /// The scriptHashes that were affected by this refresh/synch cycle. Used for notifications.
     std::unordered_set<HashX, HashHasher> scriptHashesAffected;
-    /// The txids in the adds or drops that also have dsproofs associated with them (cumulative across retries, like scriptHashesAffected)
-    Mempool::TxHashSet dspTxsAffected;
     /// The txids either added or dropped -- for the txSubsMgr
     std::unordered_set<TxHash, HashHasher> txidsAffected;
 

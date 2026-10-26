@@ -20,7 +20,6 @@
 
 #include "BlockProcTypes.h"
 #include "Common.h"
-#include "DSProof.h"
 #include "Rpa.h"
 #include "TXO.h"
 
@@ -147,7 +146,6 @@ struct Mempool
     TxMap txs;
     HashXTxMap hashXTxs;
     std::optional<Rpa::MempoolPrefixTable> optPrefixTable; ///< only has_value() if RPA is enabled. For mempool RPA queries.
-    DSPs dsps;
 
 
     // -- Add to mempool
@@ -165,9 +163,7 @@ struct Mempool
     struct Stats {
         std::size_t oldSize = 0, newSize = 0;
         std::size_t oldNumAddresses = 0, newNumAddresses = 0;
-        std::size_t dspRmCt = 0, dspTxRmCt = 0; // dsp stats: number of dsproofs removed, number of dsp <-> tx links removed (dropTxs, confirmedInBlock updates these)
         std::size_t rpaRmCt = 0; ///< the number of tx <-> rpa prefix associations removed
-        TxHashSet dspTxsAffected; // populated by addNewTxs(), dropTxs(), & confirmedInBlock() -- used ultimately bu DSProofSubsMgr to notify linked txs.
         double elapsedMsec = 0.;
     };
 

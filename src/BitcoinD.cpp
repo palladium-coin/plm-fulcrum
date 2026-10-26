@@ -204,8 +204,6 @@ namespace {
 
         constexpr BitcoinDVersionParseResult() noexcept = default;
         BitcoinDVersionParseResult(unsigned val, const QString &subversion);
-
-        bool definitelyLacksDSProofRPC() const;
     };
 
     BitcoinDVersionParseResult::BitcoinDVersionParseResult(unsigned val, const QString &subversion) {
@@ -237,21 +235,6 @@ namespace {
         }
     }
 
-    bool BitcoinDVersionParseResult::definitelyLacksDSProofRPC() const {
-        // BCHN before 22.3.0 lacks this rpc
-        if (isBCHN && version < Version{22, 3, 0})
-            return true;
-        // at the time of this writing, 0.17.1 is latest bchd and it definitely lacks this rpc, but leave room for future bchd to add it.
-        if (isBchd && version < Version{0, 17, 2})
-            return true;
-        // at the time of this writing, released BU is 1.9.0 and it definitely lacks the dsproof RPC
-        if (isBU && version < Version{1, 9, 1})
-            return true;
-        if (isCore || isPLM) // core and/or plm will definitely never add this feature
-            return true;
-        // for all other remote daemons, return false so that calling code will probe.
-        return false;
-    }
 }
 
 void BitcoinDMgr::refreshBitcoinDNetworkInfo()
@@ -307,8 +290,6 @@ void BitcoinDMgr::refreshBitcoinDNetworkInfo()
                 // - bchd (all versions)
                 // - BU before version 1.9.1.0
                 rsi.lacksGetZmqNotifications = lacksGetZmqNotifications = res.isBchd || (res.isBU && res.version < Version{1, 9, 1});
-                // clear hasDSProofRPC until proven to have it via a query
-                rsi.hasDSProofRPC = false;
                 // Bitcoin Core 25.0+ requires specifying `maxburnamount` in the `sendrawtransaction` RPC
                 // (which, due to bitcoin core weirdness in how it encodes the version int, maps to Version{0, 25, 0}
                 rsi.sendRawTransactionRequiresMaxBurnAmount = res.isCore && bitcoinDInfo.version >= Version{0, 25, 0};
@@ -342,9 +323,6 @@ void BitcoinDMgr::refreshBitcoinDNetworkInfo()
                 } else
                     refreshBitcoinDZmqNotifications(); // query since we think bitcoind maybe has the RPC method
             }
-            // also see about refreshing whether remote bitcoind has dsproof rpc, but don't query for versions we know don't have it.
-            if (!res.definitelyLacksDSProofRPC())
-                probeBitcoinDHasDSProofRPC();
             // determine if we can use the "fast" ping method, "uptime", or whether we fall back to "help help"
             probeBitcoinDHasUptimeRPC();
         },
@@ -504,32 +482,6 @@ void BitcoinDMgr::refreshBitcoinDZmqNotifications()
     );
 }
 
-void BitcoinDMgr::probeBitcoinDHasDSProofRPC()
-{
-    submitRequest(this, newId(), "getdsprooflist", {0},
-        // success
-        [this](const RPC::Message & reply) {
-            if (!reply.result().canConvert<QVariantList>()) {
-                Warning() << "getdsprooflist: query to bitcoind returned a result in an unexpected format";
-                setHasDSProofRPC(false);
-            } else {
-                Debug() << "getdsprooflist: remote bitcoind has the RPC";
-                setHasDSProofRPC(true);
-            }
-        },
-        // error -- probe basically returned a negative result (error details will be automatically logged to debug log)
-        [this](const RPC::Message &) {
-            Debug() << "getdsprooflist: remote bitcoind lacks the RPC";
-            setHasDSProofRPC(false);
-        },
-        // failure -- connection dropped just as we were doing this
-        [this](const RPC::Message::Id &, const QString &reason) {
-            Error() << "getdsprooflist failed: " << reason;
-            setHasDSProofRPC(false);
-        }
-    );
-}
-
 void BitcoinDMgr::probeBitcoinDHasUptimeRPC()
 {
     submitRequest(this, newId(), "uptime", {},
@@ -595,12 +547,6 @@ BitcoinDInfo::RpcSupportInfo BitcoinDMgr::getRpcSupportInfo() const
 {
     std::shared_lock g(bitcoinDInfoLock);
     return bitcoinDInfo.rpcSupportInfo;
-}
-
-void BitcoinDMgr::setHasDSProofRPC(bool b)
-{
-    std::unique_lock g(bitcoinDInfoLock);
-    bitcoinDInfo.rpcSupportInfo.hasDSProofRPC = b;
 }
 
 auto BitcoinDMgr::getCachedResult(const QString &method) const -> std::optional<CachedResult>
@@ -1078,7 +1024,6 @@ QVariantMap BitcoinDInfo::toVariantMap() const
     ret["hasEstimateSmartFee"] = rpcSupportInfo.hasEstimateSmartFee;
     ret["isTwoArgEstimateSmartFee"] = rpcSupportInfo.isTwoArgEstimateSmartFee;
     ret["lacksGetZmqNotifications"] = rpcSupportInfo.lacksGetZmqNotifications;
-    ret["hasDSProofRPC"] = rpcSupportInfo.hasDSProofRPC;
     ret["sendRawTransactionRequiresMaxBurnAmount"] = rpcSupportInfo.sendRawTransactionRequiresMaxBurnAmount;
     ret["hasSubmitPackageRPC"] = rpcSupportInfo.hasSubmitPackageRPC;
     ret["isCore"] = isCore;

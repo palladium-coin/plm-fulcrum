@@ -81,10 +81,6 @@ SynchMempoolTask::~SynchMempoolTask()
             // where we queued up some notifications and then we died on a retry due to errors from bitcoind)
             storage->subs()->enqueueNotifications(std::move(scriptHashesAffected));
         }
-        if (!dspTxsAffected.empty()) {
-            DebugM(objectName(), ": dspTxsAffected: ", dspTxsAffected.size());
-            storage->dspSubs()->enqueueNotifications(std::move(dspTxsAffected));
-        }
         if (!txidsAffected.empty()) {
             storage->txSubs()->enqueueNotifications(std::move(txidsAffected));
         }
@@ -105,8 +101,7 @@ void SynchMempoolTask::clear() {
     // Note: we don't clear "scriptHashesAffected" intentionally in case we are retrying. We want to accumulate
     // all the droppedTx scripthashes for each retry, so we never clear the set.
     // Note 2: we also never clear the redoCt since that counter needs to maintain state to abort too many redos.
-    // Note 3: we also never clear dspTxsAffected
-    // Note 4: we never clear txidsAffected
+    // Note 3: we never clear txidsAffected
 }
 
 void SynchMempoolTask::Precache::startThread(const size_t reserve, Mempool::TxHashSet tentativeMempoolTxHashes)
@@ -355,14 +350,11 @@ void SynchMempoolTask::doGetRawMempool()
                     d << "Dropped " << droppedCt << " txs from mempool (" << affected.size() << " addresses) in "
                       << QString::number(res.elapsedMsec, 'f', 3) << " msec, new mempool size: " << res.newSize
                       << " (" << res.newNumAddresses << " addresses)";
-                    if (res.dspRmCt || res.dspTxRmCt)
-                        d << " (also dropped dsps: " << res.dspRmCt << " dspTxs: " << res.dspTxRmCt << ")";
                     if (res.rpaRmCt)
                         d << " (also removed rpa entries: " << res.rpaRmCt << ")";
                 }
                 scriptHashesAffected.merge(std::move(affected)); /* update set here with lock not held */
-                dspTxsAffected.merge(std::move(res.dspTxsAffected)); /* also update this */
-                // . <--- NB: at this point: affected and res.dspsTxsAffected are moved-from
+                // . <--- NB: at this point: affected is moved-from
             }
             if (droppedCt != expectedDropCt) [[unlikely]] { // This invariant is checked to detect bugs.
                 Warning() << "Synch mempool expected to drop " << expectedDropCt << ", but in fact dropped "
@@ -587,7 +579,6 @@ void SynchMempoolTask::processResults()
         updateLastProgress(0.80);
         return mempool.addNewTxs(scriptHashesAffected, txsDownloaded, getFromCache, TRACE); // may throw
     }();
-    dspTxsAffected.merge(std::move(res.dspTxsAffected));
     if ((res.oldSize != res.newSize || res.elapsedMsec > 1e3) && Debug::isEnabled()) {
         Controller::printMempoolStatusToLog(res.newSize, res.newNumAddresses, res.elapsedMsec, true, true);
     }
