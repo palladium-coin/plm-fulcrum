@@ -51,8 +51,8 @@ struct BitcoinDInfo {
     QString warnings = ""; ///< from 'warnings' in the getnetworkinfo response (usually is empty string, but may not always be)
     struct RpcSupportInfo {
         bool isZeroArgEstimateFee = false; ///< true if remote bitcoind expects 0 argument "estimatefee" RPC.
-        bool hasEstimateSmartFee = false; ///< true if remote bitcoind supports estimatesmartfee. (Bitcoin Core >= 0.15.0, Litecoin >= 0.15.0)
-        bool isTwoArgEstimateSmartFee = false; ///< if true, estimatesmartfee has an optional second parameter "mode" (Bitcoin Core >= 0.16.0, Litecoin >= 0.15.0)
+        bool hasEstimateSmartFee = false; ///< true if remote bitcoind supports estimatesmartfee. (Bitcoin Core >= 0.15.0)
+        bool isTwoArgEstimateSmartFee = false; ///< if true, estimatesmartfee has an optional second parameter "mode" (Bitcoin Core >= 0.16.0)
         bool lacksGetZmqNotifications = false; ///< true if bchd or BU < 1.9.1.0, or if we got an RPC error the last time we queried
         bool hasDSProofRPC = false; ///< true if the RPC query to `getdsprooflist` didn't return an error.
         bool sendRawTransactionRequiresMaxBurnAmount = false; ///< true if the `sendrawtransaction` RPC requires 2 extra args. Bitcoin Core >= 25.0.0 only.
@@ -60,7 +60,6 @@ struct BitcoinDInfo {
     };
     RpcSupportInfo rpcSupportInfo;
     bool isCore = false; ///< true if we are actually connected to /Satoshi.. node (Bitcoin Core)
-    bool isLTC = false; ///< true if we are actually connected to /LitecoinCore.. node (Litecoin)
     bool isPLM = false; ///< true if we are connected to a /Palladium:.. node (Palladium, PLM)
     bool isBU = false; ///< true if subversion string starts with "/BCH Unlimited:"
     bool isFlowee = false; ///< true if subversion string starts with "/Flowee"
@@ -148,7 +147,7 @@ signals:
     void inWarmUp(const QString &);
 
     /// Emitted as soon as we read the bitcoind subversion. If it starts with /Satoshi:.., we emit this
-    /// with Coin::BTC, if subversion is /LitecoinCore... we emit Coin::LTC, otherwise, we emit it with
+    /// with Coin::BTC, if subversion is /Palladium:... we emit Coin::PLM, otherwise, we emit it with
     /// Coin::BCH.
     void coinDetected(BTC::Coin);
 

@@ -393,7 +393,7 @@ App::LatchFile::~LatchFile()
 void App::parseArgs()
 {
     QCommandLineParser parser;
-    parser.setApplicationDescription("A Bitcoin Cash, Bitcoin BTC, and Litecoin Blockchain SPV Server");
+    parser.setApplicationDescription("A Bitcoin Cash, Bitcoin BTC, and Palladium Blockchain SPV Server");
     parser.addHelpOption();
 
     static constexpr auto RPCUSER = "RPCUSER", RPCPASSWORD = "RPCPASSWORD"; // optional env vars we use below

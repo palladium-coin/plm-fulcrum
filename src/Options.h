@@ -332,7 +332,7 @@ public:
 
         // config: rpa_start_height - From what height to begin indexing RPA data.
         // -1 means "auto" and is chain-specific --> mainnet: height 825,000 (PLM: 0), all other nets: height 0 (from 0 for perf. testing)
-        static constexpr int defaultStartHeightForMainnet = 825'000, // BTC & BCH: sometime in January 2024; LTC -> way in the past (LTC unlikely to ever use this facility anyway)
+        static constexpr int defaultStartHeightForMainnet = 825'000, // BTC & BCH: sometime in January 2024
                              defaultStartHeightOtherNets = 0;
         int requestedStartHeight = -1;
     } rpa;
