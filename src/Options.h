@@ -306,37 +306,6 @@ public:
     // config: pidfile
     QString pidFileAbsPath; ///< If non-empty, app will write PID to this file and delete this file on shutdown
 
-    // RPA-related (all grouped together in this struct)
-    struct Rpa {
-        // CLI: --rpa
-        // config: rpa - Enable/disable the RPA index
-        enum EnabledSpec { Disabled, Enabled, Auto /* Auto means ON for BCH, OFF for everything else */ };
-        static constexpr EnabledSpec defaultEnabledSpec = Auto; // default Auto (ON for BCH, OFF for every other chain)
-        EnabledSpec enabledSpec = defaultEnabledSpec;
-        QString enabledSpecToString() const { return enabledSpec == Disabled ? "disabled" : (enabledSpec == Enabled ? "enabled" : "auto (enabled for BCH only)"); }
-        // Note: to see if RPA is enabled, check the Storage object since it makes the final decision based on `enabledSpec` & `coin`
-
-        // config: rpa_max_history - Limit result array size for blockchain.rpa.get_history
-        // This can be set independently of app-level max_history (but defaults to max_history). If user specifies
-        // max_history but leaves rpa_max_history unspecified, then rpa_max_history also gets set to whatever
-        // the user said for max_history at app init (see: App.cpp).
-        int maxHistory = defaultMaxHistory;
-
-        // config: rpa_history_block_limit (aka: rpa_history_blocks) - Limit number of blocks to scan at once for blockchain.rpa.get_history
-        static constexpr unsigned defaultHistoryBlockLimit = 60, historyBlockLimitMin = 1, historyBlockLimitMax = 2016;
-        unsigned historyBlockLimit = defaultHistoryBlockLimit;
-
-        // config: rpa_prefix_bits_min - Minimum number of prefix bits for a blockchain.rpa.* query (DoS protection measure)
-        static constexpr int defaultPrefixBitsMin = 8;
-        int prefixBitsMin = defaultPrefixBitsMin; // NB: this value should be bounded by [Rpa::PrefixBitsMin, Rpa::PrefixBitsMax], and be a multiple of 4
-
-        // config: rpa_start_height - From what height to begin indexing RPA data.
-        // -1 means "auto" and is chain-specific --> mainnet: height 825,000 (PLM: 0), all other nets: height 0 (from 0 for perf. testing)
-        static constexpr int defaultStartHeightForMainnet = 825'000, // BTC & BCH: sometime in January 2024
-                             defaultStartHeightOtherNets = 0;
-        int requestedStartHeight = -1;
-    } rpa;
-
     // config: zmq_allow_hashtx
     static constexpr bool defaultZmqAllowHashTx = false;
     bool zmqAllowHashTx = defaultZmqAllowHashTx;

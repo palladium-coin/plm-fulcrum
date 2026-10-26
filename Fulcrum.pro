@@ -367,7 +367,6 @@ SOURCES += \
     PackedNumView.cpp \
     PeerMgr.cpp \
     RollingBloomFilter.cpp \
-    Rpa.cpp \
     RPC.cpp \
     RPCMsgId.cpp \
     ServerMisc.cpp \
@@ -417,7 +416,6 @@ HEADERS += \
     PackedNumView.h \
     PeerMgr.h \
     RollingBloomFilter.h \
-    Rpa.h \
     RPC.h \
     RPCMsgId.h \
     ServerMisc.h \

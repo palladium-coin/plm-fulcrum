@@ -33,7 +33,6 @@
 #include <unordered_set>
 #include <vector>
 
-class CoTask;
 
 struct PreProcessedBlock;
 using PreProcessedBlockPtr = std::shared_ptr<PreProcessedBlock>;  ///< For clarity/convenience
@@ -113,9 +112,6 @@ struct PreProcessedBlock
 
     unsigned nOpReturns = 0; ///< just keep a count of the number of opreturn outputs encountered in the block (used by sanity checkers)
 
-    /// RPA support: the RPA prefix table, serialized; this is only valid if rpa is enabled otherwise is a no-op
-    std::optional<QByteArray> serializedRpaPrefixTable;
-
     // -- Methods:
 
     // misc helpers --
@@ -165,19 +161,17 @@ struct PreProcessedBlock
 
     // c'tors, etc... note this class is fully copyable and moveable
     PreProcessedBlock() = default;
-    PreProcessedBlock(BlockHeight bheight, const BlockHash &bhash, size_t rawBlockSizeBytes, const bitcoin::CBlock &b,
-                      CoTask *rpaTask /* nullable */) {
-        fill(bheight, bhash, rawBlockSizeBytes, b, rpaTask);
+    PreProcessedBlock(BlockHeight bheight, const BlockHash &bhash, size_t rawBlockSizeBytes, const bitcoin::CBlock &b) {
+        fill(bheight, bhash, rawBlockSizeBytes, b);
     }
     /// reset this to empty
     inline void clear() { *this = PreProcessedBlock(); }
     /// fill this block with data from bitcoin's CBlock
-    void fill(BlockHeight blockHeight, const BlockHash &blockHash, size_t rawSizeBytes, const bitcoin::CBlock &b,
-              CoTask *rpaTask /* nullable */);
+    void fill(BlockHeight blockHeight, const BlockHash &blockHash, size_t rawSizeBytes, const bitcoin::CBlock &b);
 
     /// convenience factory static method: given a block, return a shard_ptr instance of this struct
     static PreProcessedBlockPtr makeShared(unsigned height, const BlockHash &hash, size_t sizeBytes,
-                                           const bitcoin::CBlock &block, CoTask *rpaTask /* nullable */);
+                                           const bitcoin::CBlock &block);
 
     /// debug string
     QString toDebugString() const;

@@ -83,15 +83,6 @@ public:
         return type == BTC::Coin::BCH || type == BTC::Coin::Unknown;
     }
 
-    /// Type used internally by the putRpaIndex signal
-    struct RpaOnlyModeData {
-        BlockHeight height{};
-        BlockHash hash;
-        QByteArray serializedPrefixTable;
-        size_t nTx{}, nTxsIndexed{}, nIns{}, nInsIndexed{}, nOuts{}, rawBlockSizeBytes{};
-    };
-    using RpaOnlyModeDataPtr = std::shared_ptr<RpaOnlyModeData>;
-
 signals:
     /// Emitted in Storage::startup(), after successful DB open
     void dbSuccessfullyOpened();
@@ -116,10 +107,6 @@ signals:
     /// *after* signal/slots do.. and they arrive out-of-order with respect to them -- and we want to make sure to
     /// get all the blocks *before* the DownloadBlocksTasks are removed after they finish).
     void putBlock(CtlTask *sender, PreProcessedBlockPtr);
-
-    /// "Private" signal, not intended to be used by outside code. Used internally to send serialized processed prefix
-    /// table data that is ready from any thread to to this object for processing in Controller's thread.
-    void putRpaIndex(CtlTask *sender, Controller::RpaOnlyModeDataPtr);
 
     /// Emitted only iff the user specified --dump-sh on the CLI. This is emitted once the script hash dump has completed.
     void dumpScriptHashesComplete();
@@ -146,9 +133,6 @@ protected slots:
     /// Slot for the BitcoinDMgr::bitcoinCoreDetection. This is compared to this->coinType and if there is a
     /// mismatch there, we may end up aborting the app and logging an error in this slot.
     void on_coinDetected(BTC::Coin); //< NB: Connected via DirectConnection and may run in the BitcoinDMgr thread!
-
-    /// Slot for putRpaIndex signal. Runs in this thread, adds the supplied data to the RPA index.
-    void on_putRpaIndex(CtlTask *, Controller::RpaOnlyModeDataPtr);
 
 private:
     friend class CtlTask;
@@ -184,14 +168,14 @@ private:
     std::unordered_map<CtlTask *, std::unique_ptr<CtlTask>, Util::PtrHasher> tasks;
     int nDLBlocksTasks = 0;
 
-    CtlTask * add_DLBlocksTask(unsigned from, unsigned to, size_t nTasks, bool isRpaOnlyMode);
+    CtlTask * add_DLBlocksTask(unsigned from, unsigned to, size_t nTasks);
     void process_DownloadingBlocks();
     bool process_VerifyAndAddBlock(PreProcessedBlockPtr); ///< helper called from within DownloadingBlocks state -- makes sure block is sane and adds it to db
     void process_PrintProgress(const QString &verb, unsigned height, size_t nTx, size_t nIns, size_t nOuts, size_t nSH,
                                size_t rawBlockSizeBytes, bool showRateBytes, std::optional<double> pctOverride = std::nullopt);
     void process_DoUndoAndRetry(); ///< internal -- calls storage->undoLatestBlock() and schedules a task death and retry.
     template <typename T>
-    void on_putCommon(CtlTask *, const T &, int expectedState, const QString &expectedStateName); ///< internal. Called by on_putBlock and on_PutRpaIndex.
+    void on_putCommon(CtlTask *, const T &, int expectedState, const QString &expectedStateName); ///< internal. Called by on_putBlock.
 
     size_t nBlocksDownloadedSoFar() const; ///< not 100% accurate. call this only from this thread
     std::tuple<size_t, size_t, size_t> nTxInOutSoFar() const; ///< not 100% accurate. call this only from this thread
@@ -281,14 +265,6 @@ private:
     /// a "coin" defined in storage already.
     std::atomic_bool didReceiveCoinDetectionFromBitcoinDMgr = false;
 
-    /// Used internally to decide if we need to skip the RPA is sane check or not
-    bool skipRpaSanityCheck = false;
-
-    /// Called by controller in its state machine processing function -- returns false normally, but if true is returned
-    /// then the state machine has already advanced to GetBlocks_RPA and the controller should return early return from
-    /// its current process() invocation.
-    bool checkRpaIndexNeedsSync(int tipHeight);
-
 protected:
     /// Called from the poll timer to restart the state machine and get latest blocks and mempool (process());
     /// Also called if we received a zmq hashblock or hashtx notification (in which case it will be called with the valid
@@ -353,4 +329,3 @@ protected:
 
 Q_DECLARE_METATYPE(CtlTask *);
 Q_DECLARE_METATYPE(PreProcessedBlockPtr);
-Q_DECLARE_METATYPE(Controller::RpaOnlyModeDataPtr);

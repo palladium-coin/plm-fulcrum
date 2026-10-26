@@ -19,8 +19,6 @@
 #include "BlockProc.h"
 #include "BTC.h"
 #include "Common.h"
-#include "CoTask.h"
-#include "Rpa.h"
 #include "Util.h"
 
 #include "bitcoin/transaction.h"
@@ -34,7 +32,7 @@
 /* static */ const TxHash PreProcessedBlock::nullhash;
 
 /// fill this struct's data with all the txdata, etc from a bitcoin CBlock. Alternative to using the second c'tor.
-void PreProcessedBlock::fill(BlockHeight blockHeight, const BlockHash &blockHash, size_t blockSize, const bitcoin::CBlock &b, CoTask *rpaTask) {
+void PreProcessedBlock::fill(BlockHeight blockHeight, const BlockHash &blockHash, size_t blockSize, const bitcoin::CBlock &b) {
     if (!header.IsNull() || !txInfos.empty())
         clear();
     height = blockHeight;
@@ -46,46 +44,6 @@ void PreProcessedBlock::fill(BlockHeight blockHeight, const BlockHash &blockHash
     std::unordered_map<TxHash, unsigned, HashHasher> txHashToIndex; // since we know the size ahead of time here, we can set max_load_factor to 1.0 and avoid over-allocating the hash table
     txHashToIndex.max_load_factor(1.0);
     txHashToIndex.reserve(b.vtx.size());
-    std::optional<CoTask::Future> rpaFut; // NB: rpaFut will auto-wait for work (if any) to complete as part of its d'tor
-    if (rpaTask) {
-        // Do RPA-related hashing and processing in the rpaTask's thread in parallel (really pays off for 1-off blocks)
-        rpaFut = rpaTask->submitWork([&b, this]{
-            // Process the first 30 inputs for each non-coinbase block txn
-            Tic t0;
-            Rpa::PrefixTable pft;
-            size_t nProcessed = 0;
-            const size_t nTx = b.vtx.size();
-            size_t maxTxIdxSeen = 0;
-            for (size_t txIdx = 1 /* skip coinbase */; txIdx < nTx; maxTxIdxSeen = txIdx++) {
-                // If RPA enabled, serialize and hash the input itself, and update the prefix table to point to txIdx
-                // Limit: only the first 30 inputs are processed and indexed in this way, as per the RPA spec.
-                const auto &tx = *b.vtx[txIdx];
-                const size_t inMax = std::min<size_t>(tx.vin.size(), Rpa::InputIndexLimit);
-                for (size_t inpIdx = 0; inpIdx < inMax; ++inpIdx) {
-                    const auto &in = tx.vin[inpIdx];
-                    pft.addForPrefix(Rpa::Prefix(Rpa::Hash(in)), txIdx);
-                    ++nProcessed;
-                }
-            }
-            // Defensive programming -- ensure that our prefix table entries didn't overflow past Rpa::MaxTxIdx
-            if (maxTxIdxSeen > Rpa::MaxTxIdx) [[unlikely]]
-                // This should never happen -- a block with more than 16.7 million txns!
-                throw InternalError(QString("Block %1 too many txs (%2) and has overflowed the maximum txIdx we support"
-                                            " for RPA (%3). Please contact the developers and report this issue.")
-                                        .arg(height).arg(maxTxIdxSeen).arg(Rpa::MaxTxIdx));
-
-            // Aaand.. serialize the table; ready to be put into DB. This call may take a few msec for large tables.
-            this->serializedRpaPrefixTable.emplace(pft.serialize());
-
-            if constexpr (false) { // this is spammy, but set to `true` to get an idea of how expensive this processing is, per block
-                if (nProcessed >= 100)
-                    DebugM("Prefix table for block ", height, " processed ", nProcessed, " inputs in ", t0.msecStr(), " msec");
-            }
-        });
-    } else {
-        this->serializedRpaPrefixTable.reset();
-    }
-
     // run through all tx's, build inputs and outputs lists
     size_t txIdx = 0;
     for (const auto & tx : b.vtx) {
@@ -268,9 +226,9 @@ QString PreProcessedBlock::toDebugString() const
 /// convenience factory static method: given a block, return a shard_ptr instance of this struct
 /*static*/
 PreProcessedBlockPtr PreProcessedBlock::makeShared(unsigned height_, const BlockHash &hash_, size_t size,
-                                                   const bitcoin::CBlock &block, CoTask *rpaTask)
+                                                   const bitcoin::CBlock &block)
 {
-    return std::make_shared<PreProcessedBlock>(height_, hash_, size, block, rpaTask);
+    return std::make_shared<PreProcessedBlock>(height_, hash_, size, block);
 }
 
 

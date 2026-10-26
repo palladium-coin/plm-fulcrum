@@ -20,7 +20,6 @@
 
 #include "BlockProcTypes.h"
 #include "Common.h"
-#include "Rpa.h"
 #include "TXO.h"
 
 #include "bitcoin/amount.h"
@@ -88,9 +87,6 @@ struct Mempool
         /// save space vs. ankerl for immutable maps (which this is, once built)
         std::unordered_map<HashX, IOInfo, HashHasher> hashXs;
 
-        using RpaPrefixSet = std::unordered_set<Rpa::Prefix, Rpa::Prefix::Hasher>;
-        bitcoin::HeapOptional<RpaPrefixSet> optRpaPrefixSet;
-
         /// in-mempool parent/child transactions
         std::unordered_map<TxHash, TxWeakRef, HashHasher> parents, children;
 
@@ -145,7 +141,6 @@ struct Mempool
     // -- Data members of struct Mempool --
     TxMap txs;
     HashXTxMap hashXTxs;
-    std::optional<Rpa::MempoolPrefixTable> optPrefixTable; ///< only has_value() if RPA is enabled. For mempool RPA queries.
 
 
     // -- Add to mempool
@@ -163,7 +158,6 @@ struct Mempool
     struct Stats {
         std::size_t oldSize = 0, newSize = 0;
         std::size_t oldNumAddresses = 0, newNumAddresses = 0;
-        std::size_t rpaRmCt = 0; ///< the number of tx <-> rpa prefix associations removed
         double elapsedMsec = 0.;
     };
 
@@ -277,9 +271,6 @@ private:
 
     /// Internal: called by dump()
     static QVariantMap dumpTx(const TxRef &tx);
-
-    /// Internal to do RPA book-keeping for a tx removal, called by confirmedInBlock() and dropTxs()
-    size_t rmTxRpaAssociations(const TxRef &tx);
 
 #ifdef ENABLE_TESTS
 public:

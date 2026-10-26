@@ -350,8 +350,6 @@ void SynchMempoolTask::doGetRawMempool()
                     d << "Dropped " << droppedCt << " txs from mempool (" << affected.size() << " addresses) in "
                       << QString::number(res.elapsedMsec, 'f', 3) << " msec, new mempool size: " << res.newSize
                       << " (" << res.newNumAddresses << " addresses)";
-                    if (res.rpaRmCt)
-                        d << " (also removed rpa entries: " << res.rpaRmCt << ")";
                 }
                 scriptHashesAffected.merge(std::move(affected)); /* update set here with lock not held */
                 // . <--- NB: at this point: affected is moved-from

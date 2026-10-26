@@ -56,7 +56,6 @@ class WriteBatch;
 }
 
 namespace BTC { class HeaderVerifier; } // fwd decl used below. #include "BTC.h" to see this type
-namespace Rpa { class Prefix; } // fwd decl, use "Rpa.h" to see this type
 
 /// Generic database error
 struct DatabaseError : public Exception { using Exception::Exception; ~DatabaseError() override; };
@@ -259,10 +258,6 @@ public:
     History getHistory(const HashX &, bool includeConfirmed, bool includeMempool, BlockHeight fromHeight = 0,
                        std::optional<BlockHeight> optToHeight = std::nullopt) const;
 
-    /// Thread-safe. Will return a truncated vector if the history size exceeds rpa_max_history. Range is [from, end)
-    History getRpaHistory(const Rpa::Prefix &prefix, bool includeConfirmed, bool includeMempool,
-                          BlockHeight fromHeight = 0, std::optional<BlockHeight> endHeight = std::nullopt) const;
-
     struct UnspentItem : HistoryItem {
         IONum tx_pos = 0;
         bitcoin::Amount value;
@@ -382,41 +377,6 @@ public:
     /// the /debug HTTP endpoint.
     UTXOSetStats calcUTXOSetStats(const DumpProgressFunc & = {}, size_t progInterval = 100000) const;
 
-    /// Thread-safe. Returns true if RPA index is enabled, false otherwise. May return false before app is fully
-    /// initted and if the requested RPA mode is "auto" and we haven't yet decided if on or off based on "Coin".
-    bool isRpaEnabled() const;
-
-    /// Thread-safe. Returns the height from which user wants to begin indexing RPA data, or -1 if RPA is disabled.
-    /// Note: this doesn't necessarily indicate we *have* this height indexed (yet!); it's just what the user wants.
-    int getConfiguredRpaStartHeight() const;
-
-    /// Type used only by getRpaDBHeightRange() but maybe useful in the future for other methods, hence the typedef.
-    using HeightRange = std::pair<BlockHeight, BlockHeight>;
-    /// Thread-safe. Returns a pair of {fromHeight, toHeight} which is the current inclusive range of heights that the
-    /// RPA index covers in the DB. Will return a nullopt if either: (1) RPA indexing is disabled, or (2) The index is
-    /// enabled but the index is empty (which can happen if the configured start height > current tip height, for
-    /// instance).  As the DB synchs with RPA enabled the results of this call will be current to reflect the latest DB
-    /// state.
-    ///
-    /// Note: This function is intended only to be called from the Controller thread. Calling it from other code may
-    /// risk a potentially inconsistent view since it just reads 2 atomic ints separately with no locks held.
-    std::optional<HeightRange> getRpaDBHeightRange() const;
-
-    /// Called by Controller as it does its independent RPA synch. Thread-safe (takes blocksLock).
-    void addRpaDataForHeight(BlockHeight height, const BlockHash &blockHash, const QByteArray &serializedRpaPrefixTable);
-
-    /// Called by Controller. Ensures the RPA db doesn't have entries outside the range [from, to]. In other words,
-    /// deletes all entries < from and all entries > to.
-    void clampRpaEntries(BlockHeight from, BlockHeight to);
-
-    /// Called by Controller. Sets the "rpaNeedsFullCheck" flag to true
-    void flagRpaIndexAsPotentiallyInconsistent();
-
-    /// Called by Controller. If the "rpaNeedsFullCheck" flag was somehow set at some point, will do the slow DB health
-    /// checks with a lock held.  Returns true if it did such slow checks, false otherwise. Note: do not call this
-    /// unless the RPA index is definitely enabled in the app (Controller respects this criterion).
-    bool runRpaSlowCheckIfDBIsPotentiallyInconsistent(BlockHeight configuredStartHeight, BlockHeight tipHeight);
-
 signals:
     /// Emitted as one of the last things in startup(), after the DB has been fully opened and is ready to go.
     void dbSuccessfullyOpened();
@@ -465,16 +425,6 @@ protected:
     /// Rewinds the headers until the latest header is at the specified height.  May throw on error.
     void deleteHeadersPastHeight(rocksdb::WriteBatch &batch, BlockHeight height);
 
-    /// Internally called by LoadCheckRpaDB and undoLatestBlock. Call this with the blocksLock held if in multi-threaded
-    /// mode, to ensure DB consistency. Deletes any rpa entries >= height. Returns true on success, false on failure.
-    bool deleteRpaEntriesFromHeight(rocksdb::WriteBatch *batch, BlockHeight height, bool flush = false, bool force = false);
-
-    /// Internally called. Call this with the blocksLock held if in multi-threaded mode, to ensure DB consistency.
-    /// Deletes any rpa entries <= height. Returns true on success, false on failure.
-    bool deleteRpaEntriesToHeight(rocksdb::WriteBatch *batch, BlockHeight height, bool flush = false, bool force = false);
-
-    void clampRpaEntries_nolock(rocksdb::WriteBatch *batch, BlockHeight from, BlockHeight to);
-
     /// This is set in addBlock and undoLatestBlock while we do a bunch of updates, then cleared when updates are done,
     /// for each block. Thread-safe, may throw.
     void setDirty(rocksdb::WriteBatch &batch, bool dirtyFlag);
@@ -487,12 +437,6 @@ protected:
     /// Reads the UtxoCt from the meta db. If they key is missing it will return 0.  May throw on low-level db error.
     int64_t readUtxoCtFromDB() const;
 
-    /// This is set in addBlock and in other places if we find the RPA database may be inconsistent, and should
-    /// be checked (possibly on next app startup). Immediately saves a bool to the DB meta table. Thread-safe, may throw.
-    void setRpaNeedsFullCheck(bool b);
-    /// If this is true on startup, we know the RPA index must be inconsistent and we will run a full health check on
-    /// the rpa table and attempt to fix it. Thread-safe, may throw.
-    bool isRpaNeedsFullCheck() const;
 
 private:
     const std::shared_ptr<const Options> options;
@@ -511,7 +455,6 @@ private:
     void loadCheckHeadersInDB(); ///< may throw -- called from startup()
     void loadCheckUTXOsInDB(); ///< may throw -- called from startup()
     void loadCheckShunspentInDB(); ///< may throw -- called from startup()
-    void loadCheckRpaDB(); ///< may throw -- called from startup()
     void loadCheckTxNumsDRAAndBlkInfo(); ///< may throw -- called from startup()
     void loadCheckTxHash2TxNumMgr(); ///< may throw -- called from startup()
     void loadCheckEarliestUndo(); ///< may throw -- called from startup()
@@ -545,10 +488,6 @@ private:
     // Called by heightForTxNum which calls this with the blockInfo lock held
     std::optional<unsigned> heightForTxNum_nolock(TxNum) const;
 
-    /// Writes to the RPA table. Called from addBlock()
-    void addRpaDataForHeight_nolock(rocksdb::WriteBatch &batch, BlockHeight height, const BlockHash &blockHash,
-                                    const QByteArray &serializedRpaPrefixTable);
-
     /// Helper for hashForTxNum() et al; skips the cache entirely and reads directly from the database.
     std::optional<TxHash> hashForTxNum_DBOnly(TxNum, bool throwIfMissing, bool storeResultInCache) const;
     /// Helper for hashForTxNum() et al; like the above but reads only from the cache, never from the database.
@@ -565,7 +504,6 @@ Notes: Everything is endian-safe and the database data should be cross-platform 
 
 RocksDB: "meta" √
   Key: "dirty" Value: if present and value is single byte 0x01, database is in an inconsistent state
-  Key: "rpa_needs_full_check" - Value: single byte 0x01 or 0x00
   Key: "meta" - Serialize struct Meta. Purpose: metadata and sanity checks (see Storage.cpp)
 
 RocksDB: "headers" √
@@ -629,15 +567,6 @@ RocksDB: "txhash2txnum" √
     there will be more than 1 VarInt(TxNum) in that particular bucket, and we have to check each txNum in the bucket
     for that key in series versus the txnum2txhash table. The performance penalty for this is extremely small since the
     txnum2txhash is extremely fast to query given a txNum.
-
-RocksDB: "rpa" √
-  Purpose: Store tx indices referenced by prefix in the Rpa::PrefixTable structure for allowing for reusable address
-           queries.
-  Key: 32-bit height (big endian byte order)
-  Value: A 4-byte "short blockHash" followed by the compressed serialized Rpa::PrefixTable for this block height.
-
-  Comments: The Rpa::PrefixTable stores 24-bit txIdx values in a table containing 65536 (possibly empty) rows for
-    supporting up to 16-bit integer prefixes. See Rpa.h.
 
 ---
 

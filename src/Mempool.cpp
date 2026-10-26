@@ -31,7 +31,6 @@ Mempool::ConsistencyError::~ConsistencyError() {} // for vtable
 void Mempool::clear() {
     txs.clear();
     hashXTxs.clear();
-    if (optPrefixTable) optPrefixTable->clear();
     txs.rehash(0); // this should free previous capacity
     hashXTxs.rehash(0);
 }
@@ -83,7 +82,6 @@ auto Mempool::addNewTxs(ScriptHashesAffectedSet & scriptHashesAffected,
                         bool TRACE) -> Stats
 {
     const auto t0 = Tic();
-    size_t rpaDupeCt = 0u;
     Stats ret;
     ret.oldSize = this->txs.size();
     ret.oldNumAddresses = this->hashXTxs.size();
@@ -204,30 +202,6 @@ auto Mempool::addNewTxs(ScriptHashesAffectedSet & scriptHashesAffected,
             assert(sh == pprevInfo->hashX);
             this->hashXTxs[sh].push_back(tx); // mark this hashX as having been "touched" because of this input (note we push dupes here out of order but sort and uniqueify at the end)
             scriptHashesAffected.insert(sh);
-
-            // RPA handling (if enabled), and if input number is below 30
-            if (inNum < Rpa::InputIndexLimit && optPrefixTable) {
-                if (!tx->optRpaPrefixSet) tx->optRpaPrefixSet.emplace(); // ensure set exists
-                auto & txPrefixSet = *tx->optRpaPrefixSet;
-                const Rpa::Hash inputHash{in}; // hash the input
-                const auto [it, inserted] = txPrefixSet.emplace(inputHash);
-                if (inserted) {
-                    // new prefix <-> txHash association, mark it in the class-level table
-                    const Rpa::Prefix & prefix = *it;
-                    optPrefixTable->addForPrefix(prefix, tx->hash);
-                } else {
-                    // Dupe prefix <-> txHash association (prefix collision within same txn can happen every so often),
-                    // indicate this for Debug purposes, unless inNum == 0 which indicates some programming error.
-                    ++rpaDupeCt;
-                    if (Debug::isEnabled() || inNum == 0u) {
-                        (inNum == 0u ? static_cast<Log &&>(Error()) // log as Error if inNum == 0
-                                     : static_cast<Log &&>(Debug())) // otherwise log to Debug
-                            ("addNewTxs: txInput ", Util::ToHexFast(tx->hash), ":", inNum,
-                             " has dupe prefix already in table: '", it->toHex(), "' (dupeCt for this invocation: ",
-                             rpaDupeCt, ")", (inNum != 0u ? "; safely ignoring dupe." : ""));
-                    }
-                }
-            }
 
             ++inNum;
         }
@@ -386,8 +360,6 @@ auto Mempool::dropTxs(ScriptHashesAffectedSet & scriptHashesAffectedOut, TxHashS
             }
         }
 
-        ret.rpaRmCt += rmTxRpaAssociations(tx);
-
         // unlink parent/child relationships
         tx->unlinkFromParentsAndChildren();
 
@@ -418,28 +390,6 @@ auto Mempool::dropTxs(ScriptHashesAffectedSet & scriptHashesAffectedOut, TxHashS
     }
     ret.elapsedMsec = t0.msec<decltype(ret.elapsedMsec)>();
     return ret;
-}
-
-size_t Mempool::rmTxRpaAssociations(const TxRef &tx)
-{
-    size_t rmct = 0u;
-    if (tx->optRpaPrefixSet) {
-        if (optPrefixTable) [[likely]] {
-            for (const auto & prefix : *tx->optRpaPrefixSet) {
-                rmct += optPrefixTable->removeForPrefixAndHash(prefix, tx->hash);
-            }
-            if (rmct == 0u || rmct > Rpa::InputIndexLimit) {
-                (rmct == 0u ? static_cast<Log &&>(Error()) : static_cast<Log &&>(Warning()))
-                    << "rmTxRpaAssociation: removed " << rmct << " prefix <-> txHash associations for tx: "
-                    << Util::ToHexFast(tx->hash) << ". This is unexpected; FIXME!";
-            }
-        } else {
-            Warning() << "Tx: " << Util::ToHexFast(tx->hash) << " has an RPA prefix set (size: " << tx->optRpaPrefixSet->size() << ")"
-                      << ", but Mempool has optPrefixTable disabled. This is unexpected; FIXME!";
-        }
-        tx->optRpaPrefixSet->clear();
-    }
-    return rmct;
 }
 
 template <typename SetLike> requires std::is_same_v<SetLike, Mempool::TxHashSet> || std::is_same_v<SetLike, Mempool::TxHashNumMap>
@@ -588,7 +538,6 @@ auto Mempool::confirmedInBlock(ScriptHashesAffectedSet & scriptHashesAffectedOut
     size_t unknownTxidCt{}, spendsRecategorizedCt{};
 
     // - Remove all txids in txidMap from this->txs, recategorizing child txns still in mempool as having "confirmed spends"
-    // - Remove tx<->rpa associations for each confirmed tx
     // - Unlink each confirmed tx from its parent(s)/child(ren)
     // - Lastly, erase each confirmed tx altogether from `txs`
     for (const auto & [txid, txnum] : txidMap) {
@@ -598,7 +547,6 @@ auto Mempool::confirmedInBlock(ScriptHashesAffectedSet & scriptHashesAffectedOut
         // this txid is to be removed from mempool, tally its scripthashes as affected by the removal
         for (const auto & [sh, _] : tx->hashXs)
             scriptHashesAffected.insert(sh);
-        ret.rpaRmCt += rmTxRpaAssociations(tx);
 
         // handle children
         for (const auto &[ctxid, cwtx] : it->second->children) {
@@ -724,12 +672,6 @@ QVariantMap Mempool::dumpTx(const TxRef &tx)
         m["hashXs (LoadFactor)"] = QString::number(double(tx->hashXs.load_factor()), 'f', 4);
         m["hashXs (BucketCount)"] = qulonglong(tx->hashXs.bucket_count());
 
-        if (tx->optRpaPrefixSet) {
-            QVariantList prefixes;
-            for (const auto & prefix : *tx->optRpaPrefixSet)
-                prefixes.push_back(prefix.toHex());
-            m["rpaPrefixes"] = prefixes;
-        }
     }
     return m;
 }
@@ -765,34 +707,12 @@ QVariantMap Mempool::dump() const
     mp["hashXTxs (BucketMedian)"] = medianBucket;
     mp["hashXTxs (BucketMedianNonzero)"] = medianNonzero;
 
-    if (optPrefixTable) {
-        QVariantMap pt;
-        const unsigned elementCount = optPrefixTable->elementCount();
-        pt["total element count"] = elementCount;
-        if (elementCount != 0u) {
-            QVariantMap pt2;
-            for (size_t i = 0u; i < optPrefixTable->numRows(); ++i) {
-                const Rpa::Prefix pfx(uint16_t(i), 16);
-                const auto & hashSet = optPrefixTable->searchPrefix(pfx);
-                if (!hashSet.empty()) {
-                    QVariantList l;
-                    for (const auto & txHash : hashSet)
-                        l.append(Util::ToHexFast(txHash));
-                    pt2[pfx.toHex()] = l;
-                }
-            }
-            pt["prefix entries"] = pt2;
-            pt["prefix entry count"] = pt2.size();
-        }
-        mp["RPA Prefix Table"] = pt;
-    }
-
     return mp;
 }
 
 bool Mempool::Tx::deepEqual(const Tx &o) const noexcept {
-    const bool ok1 =     std::tie(  hash,   fee,   sizeBytes,   vsizeBytes,   txos,   hashXs,   optRpaPrefixSet)
-                      == std::tie(o.hash, o.fee, o.sizeBytes, o.vsizeBytes, o.txos, o.hashXs, o.optRpaPrefixSet);
+    const bool ok1 =     std::tie(  hash,   fee,   sizeBytes,   vsizeBytes,   txos,   hashXs)
+                      == std::tie(o.hash, o.fee, o.sizeBytes, o.vsizeBytes, o.txos, o.hashXs);
     if (!ok1) return false;
     // now, deep compare the parents and children sets
     if (parents.size() != o.parents.size() || children.size() != o.children.size()) return false;
@@ -892,11 +812,6 @@ bool Mempool::deepCompareEqual(const Mempool &o, QString *estr) const
             }
         }
         // otherwise equal so far...
-    }
-    static_assert(std::is_same_v<std::optional<Rpa::MempoolPrefixTable>, decltype(optPrefixTable)>, "Below line of code assumpes this");
-    if (optPrefixTable != o.optPrefixTable) {
-        if (estr) *estr = "MempoolPrefixTable members differ";
-        return false;
     }
     // couldn't find an inequality, return true
     return true;
@@ -1251,7 +1166,6 @@ namespace {
 
             Log() << QString(79, QChar{'-'});
             Mempool mempool;
-            mempool.optPrefixTable.emplace(); // enable RPA indexing
             {
                 Mempool::ScriptHashesAffectedSet shset;
                 auto t0 = Tic();
@@ -1579,7 +1493,6 @@ namespace {
                         // Note: The below is very *very* slow.
                         Log() << "Verifying resultant mempool (this may take a while) ...";
                         Mempool mempool2;
-                        mempool2.optPrefixTable.emplace(); // enable RPA index
                         Mempool::NewTxsMap adds;
                         auto t0 = Tic();
                         auto mpd2 = deepCopyMPD(mpd); // take a deep copy of the original mempool to get unique "untouched" TxRefs

@@ -121,9 +121,6 @@ Once the server finishes synching it will behave like an ElectronX/ElectrumX ser
 --pidfile
 :   If specified, Fulcrum will write its process ID to this file on startup. Useful for integration with monitoring software.
 
---rpa
-:   Explicitly enable the Reusable Payment Address index and offer the associated "blockchain.rpa.*" RPC methods to clients. To explicitly disable this facility, use the CLI arg --no-rpa. Default is: auto (enabled for BCH only).
-
 --upnp
 :   Use UPnP to tell your router to automatically allow incoming connections for all all TCP, SSL, WS, and WSS ports. To explicitly disable UPnP, use the CLI arg --no-upnp. Default is: disabled.
 
