@@ -22,7 +22,6 @@
 
 namespace bitcoin {
 
-using ChainCode = uint256;
 
 /** A hasher class for Bitcoin's 256-bit hash (double SHA-256). */
 class CHash256 {
@@ -250,9 +249,6 @@ uint32_t MurmurHash3(uint32_t nHashSeed, const uint8_t *pDataToHash, size_t nDat
 inline uint32_t MurmurHash3(uint32_t nHashSeed, Span<const uint8_t> vDataToHash) {
     return MurmurHash3(nHashSeed, vDataToHash.data(), vDataToHash.size());
 }
-
-void BIP32Hash(const ChainCode &chainCode, uint32_t nChild, uint8_t header,
-               const uint8_t data[32], uint8_t output[64]);
 
 } // end namespace bitcoin
 
