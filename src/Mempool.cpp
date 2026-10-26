@@ -1087,7 +1087,7 @@ namespace {
 
         const auto && [mpd, isSegWit] = loadMempoolDat(mpdat);
 
-        if (isSegWit) bitcoin::SetCurrencyUnit("BTC");
+        if (isSegWit) bitcoin::SetCurrencyUnit("PLM");
 
         TXOMap realCoins;
 

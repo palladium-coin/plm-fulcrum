@@ -986,12 +986,11 @@ void Server::rpc_server_add_peer(Client *c, const RPC::BatchId batchId, const RP
 }
 
 namespace {
-    // The default donation address is the upstream author's BCH address, so it is meaningless on any other coin
-    // (including PLM); on non-BCH we return an empty string unless the admin configured their own `donation=`.
-    QString transformDefaultDonationAddress(const Options &options, bool isNonBCH)
+    // The default donation address is the upstream author's BCH address, which is meaningless on PLM; we return an
+    // empty string unless the admin configured their own `donation=`.
+    QString transformDefaultDonationAddress(const Options &options)
     {
-        if (!options.isDefaultDonationAddress) return options.donationAddress; // do nothing if it wasn't the default.
-        return isNonBCH ? QString{} : options.donationAddress;
+        return options.isDefaultDonationAddress ? QString{} : options.donationAddress;
     }
 
     QString performVariableSubstitutionsForBannerFile(QString && s, const QString::size_type maxBannerData,
@@ -1055,7 +1054,7 @@ void Server::rpc_server_banner(Client *c, const RPC::BatchId batchId, const RPC:
         const auto bitcoinDInfo = bitcoindmgr->getBitcoinDInfo();
         generic_do_async(c, batchId, m.id,
                         [bannerFile,
-                         donationAddress = transformDefaultDonationAddress(*options, isNonBCH()),
+                         donationAddress = transformDefaultDonationAddress(*options),
                          daemonVersion = bitcoinDInfo.version,
                          daemonSubversion = bitcoinDInfo.subversion] {
                 QVariant ret;
@@ -1078,7 +1077,7 @@ void Server::rpc_server_banner(Client *c, const RPC::BatchId batchId, const RPC:
 }
 void Server::rpc_server_donation_address(Client *c, const RPC::BatchId batchId, const RPC::Message &m)
 {
-    emit c->sendResult(batchId, m.id, transformDefaultDonationAddress(*options, isNonBCH()));
+    emit c->sendResult(batchId, m.id, transformDefaultDonationAddress(*options));
 }
 /* static */
 QVariantMap Server::makeFeaturesDictForConnection(AbstractConnection *c, const QByteArray &genesisHash, const Options &opts)
@@ -1960,31 +1959,6 @@ void Server::rpc_blockchain_transaction_broadcast(Client *c, const RPC::BatchId 
                 if (!options->anonLogs) ts << ", size: " << qulonglong(size) << " bytes, response: " << ret.toString();
             }
             logFilter->broadcast(true, logLine, txkey);
-            // Next, check if client is old and has the phishing exploit:
-            // version 3.3.4 was the first one that was good for both Electron Cash and Electrum
-            // (skipped on PLM: there is no known client name / download site to point users at, and the 3.3.4
-            // cutoff refers to Electrum / Electron Cash version numbers, not to any PLM wallet)
-            constexpr Version FirstNonVulnerableVersion(3,3,4);
-            if (const auto uaVersion = c->info.uaVersion(); !isPLM() && uaVersion.isValid() && uaVersion < FirstNonVulnerableVersion) {
-                // The below is to warn old clients that they are vulnerable to a phishing attack.
-                // This logic is also used by the ElectronX implementations here:
-                // https://github.com/Electron-Cash/electrumx/blob/fbd00416d804c286eb7de856e9399efb07a2ceaf/electrumx/server/session.py#L1526
-                // https://github.com/Electron-Cash/electrumx/blob/fbd00416d804c286eb7de856e9399efb07a2ceaf/electrumx/lib/coins.py#L397
-                QString clientName, website;
-                clientName = "Electron Cash";
-                website = "https://electroncash.org/";
-                ret = QString("<br/><br/>"
-                              "Your transaction was successfully broadcast.<br/><br/>"
-                              "However, you are using a VULNERABLE version of %1.<br/>"
-                              "Download the latest version from this web site ONLY:<br/>"
-                              "%2"
-                              "<br/><br/>").arg(clientName, website);
-                logLine.clear();
-                QTextStream{&logLine, QIODevice::WriteOnly}
-                    << "Client " << c->id << " has a vulnerable " << clientName << " (" << uaVersion.toString()
-                    << "); upgrade warning HTML sent to client";
-                logFilter->broadcast(true, logLine, logLine);
-            }
             return ret;
         },
         // error func, throw an RPCError that's formatted in a particular way

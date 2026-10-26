@@ -66,7 +66,7 @@ struct SynchMempoolTask::Precache {
 
 SynchMempoolTask::SynchMempoolTask(Controller *ctl_, std::shared_ptr<Storage> storage, const std::atomic_bool & notifyFlag)
     : CtlTask(ctl_, "SynchMempool"), storage(storage), notifyFlag(notifyFlag),
-      isSegWit(ctl_->isSegWitCoin()), precache{std::make_unique<Precache>(*this)}
+      precache{std::make_unique<Precache>(*this)}
 {
     scriptHashesAffected.reserve(SubsMgr::kRecommendedPendingNotificationsReserveSize);
     txidsAffected.reserve(SubsMgr::kRecommendedPendingNotificationsReserveSize);
@@ -415,7 +415,7 @@ void SynchMempoolTask::doDLNextTx()
             // deserialize tx, catching any deser errors
             bitcoin::CMutableTransaction ctx;
             try {
-                ctx = BTC::Deserialize<bitcoin::CMutableTransaction>(txdata, 0, isSegWit, true /* nojunk */);
+                ctx = BTC::Deserialize<bitcoin::CMutableTransaction>(txdata, 0, true /* allowSegWit */, true /* nojunk */);
             } catch (const std::exception &e) {
                 Error() << "Error deserializing tx: " << tx->hash.toHex() << ", exception: " << e.what();
                 emit errored();
@@ -424,11 +424,7 @@ void SynchMempoolTask::doDLNextTx()
 
             // Save size now -- this is needed later to calculate fees and for everything else.
             tx->sizeBytes = unsigned(expectedLen);
-            if (isSegWit) {
-                tx->vsizeBytes = ctx.GetVirtualSize(tx->sizeBytes);
-            } else {
-               tx->vsizeBytes = tx->sizeBytes;
-            }
+            tx->vsizeBytes = ctx.GetVirtualSize(tx->sizeBytes);
 
             if (TRACE)
                 Debug() << "got reply for tx: " << hashHex << " " << txdata.length() << " bytes";
@@ -473,8 +469,7 @@ void SynchMempoolTask::doDLNextTx()
             // that there was some RBF action if on BTC, or the tx happened to drop out of mempool due to mempool pressure.
             // Since bitcoind doesn't have the tx -- then it and its children will also fail, which is fine. It's as if
             // it never existed and as if we never got it in the original list from `getrawmempool`!
-            const auto *const pre = isSegWit ? "Tx dropped out of mempool (possibly due to RBF)" : "Tx dropped out of mempool";
-            Warning() << pre << ": " << QString(hashHex) << " (error response: " << resp.errorMessage()
+            Warning() << "Tx dropped out of mempool (possibly due to RBF): " << QString(hashHex) << " (error response: " << resp.errorMessage()
                       << "), ignoring mempool tx ...";
             txsFailedDownload.insert(tx->hash);
             txsWaitingForResponse.erase(tx->hash);

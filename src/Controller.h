@@ -69,12 +69,6 @@ public:
     /// for debug printing when it receives new mempool tx's.
     static void printMempoolStatusToLog(size_t newSize, size_t numAddresses, double msec, bool useDebugLogger, bool force = false);
 
-    /// Thread-safe, lock-free, returns true for BTC and PLM
-    bool isSegWitCoin() const {
-        auto const c = coinType.load(std::memory_order_relaxed);
-        return c == BTC::Coin::BTC || c == BTC::Coin::PLM;
-    }
-
 signals:
     /// Emitted in Storage::startup(), after successful DB open
     void dbSuccessfullyOpened();

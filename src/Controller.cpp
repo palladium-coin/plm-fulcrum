@@ -223,7 +223,7 @@ void Controller::startup()
             bitcoin::CMutableTransaction tx;
             constexpr auto kErrLine2 = "Something is wrong with either BitcoinD or our ability to understand its RPC responses.";
             try {
-                BTC::Deserialize(tx, Util::ParseHexFast(resp.result().toByteArray()), 0, isSegWitCoin());
+                BTC::Deserialize(tx, Util::ParseHexFast(resp.result().toByteArray()), 0, true /* allowSegWit */);
             } catch (const std::exception &e) {
                 Error() << "Failed to deserialize tx #1 with txid " << hash.toHex() << ": " << e.what();
                 Error() << kErrLine2;
@@ -314,36 +314,11 @@ void Controller::on_coinDetected(const BTC::Coin detectedtype)
     }
     if (ourtype != detectedtype) {
         // Misconfiguration -- DB says one thing and bitcoind says another. Complain and exit.
-        if (detectedtype == BTC::Coin::BTC && ourtype == BTC::Coin::BCH) {
-            // bitcoind is Core, yet we are expecting BCH
-            Fatal() << "\n\n"
-
-                       "You are connected to a Bitcoin Core (BTC) bitcoind, yet this database was not\n"
-                       "synched to a BTC chain.\n\n"
-
-                       "Please either connect to the appropriate bitcoind for this database, or delete\n"
-                       "the datadir and resynch to this bitcoind.\n";
-        } else if (detectedtype == BTC::Coin::BCH && ourtype == BTC::Coin::BTC){
-            // bitcoind is not Core, we are expecting BTC
-            Fatal() << "\n\n"
-                       "You are connected to a non-Bitcoin Core (BTC) bitcoind, yet this database was\n"
-                       "synched to a BTC chain.\n\n"
-
-                       "At the present time, to use BTC, bitcoind must be Bitcoin Core v0.17.0 or above.\n"
-                       "Please either connect to the appropriate bitcoind for this database, or delete\n"
-                       "the datadir and resynch.\n";
-        } else if (detectedtype == BTC::Coin::PLM || ourtype == BTC::Coin::PLM) {
-            Fatal() << "\n\n"
-                       "Coin mismatch: this database is for " << BTC::coinToName(ourtype) << " but the connected bitcoind is "
-                    << BTC::coinToName(detectedtype) << ".\n\n"
-                       "Please either connect to the appropriate bitcoind for this database, or delete\n"
-                       "the datadir and resynch.\n";
-        } else {
-            // Generic message for coin mismatch.
-            Fatal() << "Unexpected coin combination: ourtype=" << BTC::coinToName(ourtype)
-                    << ", rpc daemon's type=" <<  BTC::coinToName(detectedtype) << ". Are you connected to the"
-                    << " right node for this " << APPNAME << " database?";
-        }
+        Fatal() << "\n\n"
+                   "Coin mismatch: this database is for " << BTC::coinToName(ourtype) << " but the connected bitcoind is "
+                << BTC::coinToName(detectedtype) << ".\n\n"
+                   "Please either connect to the appropriate bitcoind for this database, or delete\n"
+                   "the datadir and resynch.\n";
     }
 }
 
@@ -488,8 +463,6 @@ struct DownloadBlocksTask : CtlTask
 
     std::atomic<size_t> nTx = 0, nIns = 0, nOuts = 0;
 
-    const bool allowSegWit; ///< initted in c'tor. If true, deserialize blocks using the optional segwit extensons to the tx format.
-
     void do_get(unsigned height);
 
     // basically computes expectedCt. Use expectedCt member to get the actual expected ct. this is used only by c'tor as a utility function
@@ -504,8 +477,7 @@ struct DownloadBlocksTask : CtlTask
 
 DownloadBlocksTask::DownloadBlocksTask(unsigned from, unsigned to, unsigned stride, unsigned nClients, Controller *ctl_)
     : CtlTask(ctl_, QStringLiteral("Task.DL %1 -> %2").arg(from).arg(to)), from(from), to(to), stride(stride),
-      expectedCt(unsigned(nToDL(from, to, stride))), max_q(int(nClients)+1),
-      allowSegWit(ctl_->isSegWitCoin())
+      expectedCt(unsigned(nToDL(from, to, stride))), max_q(int(nClients)+1)
 {
     FatalAssert(to >= from && ctl_ && stride > 0, "Invalid params to DonloadBlocksTask c'tor, FIXME!");
     if (stride > 1 || expectedCt > 1) {
@@ -558,26 +530,8 @@ void DownloadBlocksTask::do_get(unsigned int bnum)
                     const auto header = rawblock.left(HEADER_SIZE); // we need a deep copy of this anyway so might as well take it now.
                     QByteArray chkHash;
                     if (bool sizeOk = header.length() == HEADER_SIZE; sizeOk && (chkHash = BTC::HashRev(header)) == hash) {
-                        PreProcessedBlockPtr ppb;
-                        try {
-                            const auto cblock = BTC::Deserialize<bitcoin::CBlock>(rawblock, 0, allowSegWit);
-                            ppb = PreProcessedBlock::makeShared(bnum, hash, size_t(rawblock.size()), cblock);
-                        } catch (const std::ios_base::failure &e) {
-                            // deserialization error -- check if block is segwit and we are not segwit
-                            if (!allowSegWit) {
-                                try {
-                                    const auto cblock2 = BTC::DeserializeSegWit<bitcoin::CBlock>(rawblock);
-                                    // If we get here the block deserialized ok as segwit but not ok as non-segwit.
-                                    // We must assume that there is some misconfiguration (the DB is not expecting SegWit).
-                                    if (std::any_of(cblock2.vtx.begin(), cblock2.vtx.end(),
-                                                    [](const auto &tx){ return tx->HasWitness(); }))
-                                        throw InternalError("SegWit block encountered for non-SegWit coin."
-                                                            " If you wish to use BTC, please delete the datadir and"
-                                                            " resynch using Bitcoin Core v0.17.0 or later.");
-                                } catch (const std::ios_base::failure &) { /* ignore -- block is bad as segwit too. */}
-                            }
-                            throw; // outer catch clause will handle printing the message
-                        }
+                        const auto cblock = BTC::Deserialize<bitcoin::CBlock>(rawblock, 0, true /* allowSegWit */);
+                        const PreProcessedBlockPtr ppb = PreProcessedBlock::makeShared(bnum, hash, size_t(rawblock.size()), cblock);
 
                         // Grab some stats
                         const size_t numTxns = ppb->txInfos.size(),
@@ -742,12 +696,10 @@ unsigned Controller::downloadTaskRecommendedThrottleTimeMsec(unsigned bnum) cons
             // mainnet
             if (bnum > 150'000) // beyond this height the blocks are starting to be big enough that we want to not eat memory.
                 maxBackLog = 250;
-            else if (bnum > 550'000 && !isSegWitCoin()) // beyond this height we may start to see 32MB blocks in the future
-                maxBackLog = 100;
         } else {
             // testnet
             if (bnum > 1'300'000) // beyond this height 32MB blocks may be common, esp. in the future
-                maxBackLog = isSegWitCoin() ? 250 : 100;
+                maxBackLog = 250;
         }
 
         const int diff = int(bnum) - int(sm->dlResultsHtNext.load()); // note: dlResultsHtNext is not guarded by the lock but it is an atomic value, so that's fine.
