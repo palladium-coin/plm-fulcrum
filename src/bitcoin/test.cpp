@@ -2874,6 +2874,54 @@ TEST_SUITE(span)
     };
 TEST_SUITE_END()
 
+TEST_SUITE(taproot)
+    using namespace bitcoin;
+
+    // Fulcrum never verifies scripts, it only needs to (de)serialize witness v1 (taproot) transactions correctly.
+    TEST_CASE(p2tr_tx_roundtrip) {
+        const std::vector<uint8_t> xonlyKey(32, 0xab), sig(64, 0xcd), tapscript{0x20, 0x01, 0xac}, ctrlBlock(33, 0xc0);
+
+        CMutableTransaction mtx;
+        mtx.nVersion = 2;
+        mtx.vin.resize(2);
+        mtx.vin[0].prevout = COutPoint(TxId(uint256S(std::string(64, '1'))), 1);
+        mtx.vin[0].nSequence = 0xfffffffd;
+        mtx.vin[0].scriptWitness.stack = {sig};                            // key-path spend
+        mtx.vin[1].prevout = COutPoint(TxId(uint256S(std::string(64, '2'))), 0);
+        mtx.vin[1].nSequence = 0xfffffffd;
+        mtx.vin[1].scriptWitness.stack = {sig, tapscript, ctrlBlock};      // script-path spend
+        mtx.vout.resize(1);
+        mtx.vout[0].nValue = 12345 * SATOSHI;
+        mtx.vout[0].scriptPubKey = CScript() << OP_1 << xonlyKey;          // witness v1 program: OP_1 <32 bytes>
+        const CTransaction tx(mtx);
+        TEST_CHECK(tx.HasWitness());
+        TEST_CHECK(tx.vout[0].scriptPubKey.size() == 34);
+        TEST_CHECK(!BTC::IsOpReturn(tx.vout[0].scriptPubKey));
+
+        // with witness: roundtrips exactly
+        const QByteArray ser = BTC::Serialize(tx, /*allowSegWit=*/true);
+        const auto tx2 = BTC::Deserialize<CTransaction>(ser, 0, /*allowSegWit=*/true, /*noJunkAtEnd=*/true);
+        TEST_CHECK(tx2.vin.size() == 2 && tx2.vout.size() == 1);
+        TEST_CHECK(tx2.vin[0].scriptWitness.stack == mtx.vin[0].scriptWitness.stack);
+        TEST_CHECK(tx2.vin[1].scriptWitness.stack == mtx.vin[1].scriptWitness.stack);
+        TEST_CHECK(tx2.vout[0].scriptPubKey == tx.vout[0].scriptPubKey);
+        TEST_CHECK(tx2.GetHash() == tx.GetHash());
+        TEST_CHECK(BTC::Serialize(tx2, true) == ser);
+
+        // txid does not commit to the witness
+        const QByteArray serNoWit = BTC::Serialize(tx, /*allowSegWit=*/false);
+        TEST_CHECK(serNoWit.size() < ser.size());
+        const auto tx3 = BTC::Deserialize<CTransaction>(serNoWit, 0, /*allowSegWit=*/false, true);
+        TEST_CHECK(!tx3.HasWitness());
+        TEST_CHECK(tx3.GetHash() == tx.GetHash());
+        TEST_CHECK(tx.GetHash() == tx3.GetHash() && ser != serNoWit);
+
+        // scripthash for the output is just sha256 of the script (same as every other script type)
+        const QByteArray hashX = BTC::HashXFromCScript(tx.vout[0].scriptPubKey);
+        TEST_CHECK(hashX.size() == 32);
+    };
+TEST_SUITE_END()
+
 } // end anonymous namespace
 
 #endif
