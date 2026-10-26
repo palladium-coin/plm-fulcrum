@@ -2309,7 +2309,7 @@ void Storage::checkUpgradeDBVersion()
     // Original Fulcrum DB version before 1.9.0 was v1, then there was v2 which added CashToken data for BCH.
     // Now we are on v3 as of 1.11.0+, whose only difference vs v2 is additional platform info saved to `Meta`.
     //
-    // Going from v1 on BTC/LTC -> v2+ is ok without caveats. For BCH, we must warn the user if their DB is v1
+    // Going from v1 on BTC -> v2+ is ok without caveats. For BCH, we must warn the user if their DB is v1
     // and it's after the upgrade9 activation time, because then the DB will be missing token data and may have
     // token-containing UTXOs indexed to the wrong script hash.
     Log() << "DB version: v" << p->meta.version;
@@ -2326,7 +2326,7 @@ void Storage::checkUpgradeDBVersion()
             if (hdr.size() == BTC::GetBlockHeaderSize()) {
                 const auto bhdr = [&hdr] {
                     try {
-                        return BTC::Deserialize<bitcoin::CBlockHeader>(hdr, 0, false, false, true, true);
+                        return BTC::Deserialize<bitcoin::CBlockHeader>(hdr, 0, false, true, true);
                     } catch (const std::ios_base::failure &e) {
                         throw InternalError(QString("checkUpgradeDBVersion: Failed to deserialize the latest block"
                                                     " header: %1").arg(e.what()));

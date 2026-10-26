@@ -1085,7 +1085,7 @@ namespace {
 
                 auto rtx = std::make_shared<Mempool::Tx>();
                 rtx->hash = BTC::Hash2ByteArrayRev(ctx->GetHashRef());
-                dataTotal += rtx->sizeBytes = ctx->GetTotalSize(isSegWit, false);
+                dataTotal += rtx->sizeBytes = ctx->GetTotalSize(isSegWit);
                 rtx->vsizeBytes = isSegWit ? ctx->GetVirtualSize(rtx->sizeBytes) : rtx->sizeBytes;
                 ret.emplace(std::piecewise_construct,
                             std::forward_as_tuple(rtx->hash),

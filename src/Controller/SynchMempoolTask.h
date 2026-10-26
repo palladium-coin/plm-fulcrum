@@ -34,8 +34,7 @@ class Storage;
 /// Task managed by the Controller class, responsible for synching the mempool from the bitcoin daemon.
 struct SynchMempoolTask final : public CtlTask
 {
-    SynchMempoolTask(Controller *ctl_, std::shared_ptr<Storage> storage, const std::atomic_bool & notifyFlag,
-                     const std::unordered_set<TxHash, HashHasher> & ignoreTxns);
+    SynchMempoolTask(Controller *ctl_, std::shared_ptr<Storage> storage, const std::atomic_bool & notifyFlag);
     ~SynchMempoolTask() override;
     void process() override;
 
@@ -48,16 +47,13 @@ private:
     const size_t maxDLBacklogSize = std::clamp(std::thread::hardware_concurrency(), 2u, 16u /* cap at default work queue limit */);
     Mempool::TxMap txsNeedingDownload, txsWaitingForResponse;
     Mempool::NewTxsMap txsDownloaded;
-    std::unordered_set<TxHash, HashHasher> txsFailedDownload, ///< set of tx's dropped due to RBF and/or mempool pressure as we were downloading
-                                           txsIgnored; ///< Litecoin only -- MWEB-only txns we are completely ignoring.
-    const std::unordered_set<TxHash, HashHasher> txnIgnoreSet; ///< Litecoin only -- comes from Controller::mempoolIgnoreTxns
+    std::unordered_set<TxHash, HashHasher> txsFailedDownload; ///< set of tx's dropped due to RBF and/or mempool pressure as we were downloading
     unsigned expectedNumTxsDownloaded = 0;
     static constexpr int kRedoCtMax = 5; // if we have to retry this many times, error out.
     static constexpr unsigned kFailedDownloadMax = 50; // if we have more than this many consecutive failures on getrawtransaction, and no successes, abort with error.
     int redoCt = 0;
     const bool TRACE = Trace::isEnabled(); // set this to true to print more debug
     const bool isSegWit; ///< initted in c'tor. If true, deserialize tx's using the optional segwit extensons to the tx format.
-    const bool isMimble; ///< initted in c'tor. If true, deserialize tx's using the optional mimble-wimble extensons to the tx format.
     const bool isCashTokens; ///< initted in c'tor. True for BCH, false otherwise. Controls Deserialize rules for txns and blocks.
 
     /// The scriptHashes that were affected by this refresh/synch cycle. Used for notifications.

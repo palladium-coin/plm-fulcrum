@@ -519,7 +519,6 @@ HEADERS += \
     bitcoin/hash.h \
     bitcoin/heapoptional.h \
     bitcoin/interpreter.h \
-    bitcoin/litecoin_bits.h \
     bitcoin/prevector.h \
     bitcoin/pubkey.h \
     bitcoin/reverse_iterator.h \

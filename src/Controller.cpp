@@ -225,7 +225,7 @@ void Controller::startup()
             bitcoin::CMutableTransaction tx;
             constexpr auto kErrLine2 = "Something is wrong with either BitcoinD or our ability to understand its RPC responses.";
             try {
-                BTC::Deserialize(tx, Util::ParseHexFast(resp.result().toByteArray()), 0, isSegWitCoin(), isMimbleWimbleCoin(), isBCHCoin());
+                BTC::Deserialize(tx, Util::ParseHexFast(resp.result().toByteArray()), 0, isSegWitCoin(), isBCHCoin());
             } catch (const std::exception &e) {
                 Error() << "Failed to deserialize tx #1 with txid " << hash.toHex() << ": " << e.what();
                 Error() << kErrLine2;
@@ -296,22 +296,6 @@ void Controller::startup()
         });
     }
 
-    {
-        // Small utility function to add "ignore" txhashes coming from SynchMempoolTask to our somewhat-persistent
-        // mempoolIgnoreTxns set (this set is cleared each time the tip changes, but persists across mempool synchs
-        // for a given tip).
-        conns += connect(this, &Controller::ignoreMempoolTxn, this, [this] (const QByteArray & txHash) {
-            if (mempoolIgnoreTxns.insert(txHash).second)
-                DebugM("Added txHash: ", txHash.toHex(), " to mempool ignore set, set size now: ", mempoolIgnoreTxns.size());
-        });
-        // Another small utility function: clears the mempoolIgnoreTxns set whenever we see a new tip
-        conns += connect(this, &Controller::newHeader, this, [this] {
-            // we just got to a new tip, clear this (will be repopulated in SynchMempoolTask if need be)
-            if (!mempoolIgnoreTxns.empty()) DebugM("mempoolIgnoreTxns: ", mempoolIgnoreTxns.size(), Util::Pluralize(" txHash", mempoolIgnoreTxns.size()), " cleared");
-            mempoolIgnoreTxns.clear();
-        });
-    }
-
     start();  // start our thread
 }
 
@@ -357,7 +341,7 @@ void Controller::on_coinDetected(const BTC::Coin detectedtype)
                        "Please either connect to the appropriate bitcoind for this database, or delete\n"
                        "the datadir and resynch.\n";
         } else {
-            // Generic message for LTC/BCH/BTC mismatch.
+            // Generic message for coin mismatch.
             Fatal() << "Unexpected coin combination: ourtype=" << BTC::coinToName(ourtype)
                     << ", rpc daemon's type=" <<  BTC::coinToName(detectedtype) << ". Are you connected to the"
                     << " right node for this " << APPNAME << " database?";
@@ -510,7 +494,6 @@ struct DownloadBlocksTask : CtlTask
     std::atomic<size_t> nTx = 0, nIns = 0, nOuts = 0;
 
     const bool allowSegWit; ///< initted in c'tor. If true, deserialize blocks using the optional segwit extensons to the tx format.
-    const bool allowMimble; ///< like above, but if true we allow mimblewimble (litecoin)
     const bool allowCashTokens; ///< allow special cashtoken deserialization rules (BCH only)
     const int rpaStartHeight; ///< if >= 0, rpa data will be indexed in PreProcessedBlock, starting at this height.
     std::optional<CoTask> rpaTask; ///< this gets created only at the point where current block height >= rpaStartHeight && rpaStartHeight > -1
@@ -532,7 +515,7 @@ protected:
 DownloadBlocksTask::DownloadBlocksTask(unsigned from, unsigned to, unsigned stride, unsigned nClients, int rpaHeight, Controller *ctl_)
     : CtlTask(ctl_, QStringLiteral("Task.DL %1 -> %2").arg(from).arg(to)), from(from), to(to), stride(stride),
       expectedCt(unsigned(nToDL(from, to, stride))), max_q(int(nClients)+1),
-      allowSegWit(ctl_->isSegWitCoin()), allowMimble(ctl_->isMimbleWimbleCoin()), allowCashTokens(ctl_->isBCHCoin()),
+      allowSegWit(ctl_->isSegWitCoin()), allowCashTokens(ctl_->isBCHCoin()),
       rpaStartHeight(rpaHeight)
 {
     FatalAssert(to >= from && ctl_ && stride > 0, "Invalid params to DonloadBlocksTask c'tor, FIXME!");
@@ -589,7 +572,7 @@ void DownloadBlocksTask::do_get(unsigned int bnum)
                         PreProcessedBlockPtr maybe_ppb; // either this is filled
                         Controller::RpaOnlyModeDataPtr maybe_rpaOnlyMode;  // or this is.. but not both!
                         try {
-                            const auto cblock = BTC::Deserialize<bitcoin::CBlock>(rawblock, 0, allowSegWit, allowMimble, allowCashTokens, allowMimble /* throw if junk at end if Litecoin (catch deser. bugs) */);
+                            const auto cblock = BTC::Deserialize<bitcoin::CBlock>(rawblock, 0, allowSegWit, allowCashTokens);
                             {
                                 VarDLTaskResult var = process_block_guts(bnum, hash, rawblock, cblock);
                                 std::visit(
@@ -598,34 +581,6 @@ void DownloadBlocksTask::do_get(unsigned int bnum)
                                         [&](Controller::RpaOnlyModeDataPtr & r) { maybe_rpaOnlyMode = std::move(r); }
                                     }, var);
                             }
-                            if (allowMimble && Debug::isEnabled()) {
-                                // Litecoin only
-                                bool doSerChk{};
-                                if (cblock.mw_blob) {
-                                    const auto n = std::min(cblock.mw_blob->size(), size_t(60));
-                                    TraceM("MimbleBlock: ", bnum, ", data_size: ", cblock.mw_blob->size(),
-                                           ", first ", n, " bytes: ",
-                                           Util::ToHexFast(QByteArray::fromRawData(reinterpret_cast<const char *>(cblock.mw_blob->data()), n)));
-                                    doSerChk = true;
-                                }
-                                if (cblock.vtx.size() >= 2 && cblock.vtx.back()->mw_blob && cblock.vtx.back()->mw_blob->size() > 1) {
-                                    const auto & tx = *cblock.vtx.back();
-                                    const auto n = std::min(tx.mw_blob->size(), size_t(60));
-                                    // We debug out in Green here to catch this very rare thing which I have never seen before
-                                    // to see if it's possible. Someday can demote this to Trace.
-                                    Debug(Log::Green) << "MimbleTxn in block: " << bnum << ", hash: " << QString::fromStdString(tx.GetId().ToString())
-                                                      << ", data_size: " << tx.mw_blob->size() << ", first " << n << " bytes: "
-                                                      << Util::ToHexFast(QByteArray::fromRawData(reinterpret_cast<const char *>(tx.mw_blob->data()), n));
-                                    doSerChk = true;
-                                }
-                                // check sanity (debug builds only)
-                                if constexpr (!isReleaseBuild()) {
-                                    if (doSerChk && rawblock != BTC::Serialize(cblock, allowSegWit, allowMimble)) {
-                                        Fatal() << "Block re-serialized to different data! FIXME!";
-                                        return;
-                                    }
-                                }
-                            } // /Litecoin only
                         } catch (const std::ios_base::failure &e) {
                             // deserialization error -- check if block is segwit and we are not segwit
                             if (!allowSegWit) {
@@ -1089,8 +1044,8 @@ void Controller::process(bool beSilentIfUpToDate)
         if (not didReceiveCoinDetectionFromBitcoinDMgr.load(std::memory_order_relaxed)) [[unlikely]] {
             // If we never once got told definitively what "Coin" we are on by bitcoind, then a race condition
             // can exist between our synch and RPA indexing being turned on/off automatically (for BCH). Since it's
-            // generally a bad idea anyway to begin a synch without knowing if we are on BTC and/or LTC (SegWit and/or
-            // MWEB extensions on deser, etc), then it's better to try again later after bitcoind tells us definitively
+            // generally a bad idea anyway to begin a synch without knowing if we are on BTC (SegWit
+            // extensions on deser, etc), then it's better to try again later after bitcoind tells us definitively
             // what coin we are on. Note that this branch is extremely unlikely and is only here for paranoia.
             Warning() << "This instance has not yet received any information from bitcoind as to what coin we are"
                          " on, aborting synch task (will retry later) ...";
@@ -1353,7 +1308,7 @@ void Controller::process(bool beSilentIfUpToDate)
             }
         }
 
-        auto task = newTask<SynchMempoolTask>(true, this, storage, masterNotifySubsFlag, mempoolIgnoreTxns);
+        auto task = newTask<SynchMempoolTask>(true, this, storage, masterNotifySubsFlag);
         task->threadObjectDebugLifecycle = Trace::isEnabled(); // suppress verbose lifecycle prints unless trace mode
         connect(task, &CtlTask::success, this, [this, task]{
             if (!sm || isTaskDeleted(task) || sm->state != State::SynchingMempool) [[unlikely]]

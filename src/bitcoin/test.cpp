@@ -2929,7 +2929,7 @@ TEST_SUITE(token)
 
         // First, deserialize without CashTokens
         {
-            const CBlock block = BTC::Deserialize<CBlock>(blockData, 0, false, false, false, true);
+            const CBlock block = BTC::Deserialize<CBlock>(blockData, 0, false, false, true);
             TEST_CHECK_EQUAL(block.GetHash().ToString(), hashBlock);
             const auto &tx = block.vtx.at(nCtTxn);
             TEST_CHECK_EQUAL(tx->GetHash().ToString(), hashCtTxn);
@@ -2940,16 +2940,16 @@ TEST_SUITE(token)
             TEST_CHECK(std::equal(tokenBlob.begin(), tokenBlob.end(),
                                   txout.scriptPubKey.begin(), txout.scriptPubKey.end()));
             // ensure re-serialization works
-            TEST_CHECK(BTC::Serialize(block, false, false) == blockData);
+            TEST_CHECK(BTC::Serialize(block, false) == blockData);
             // ensure ser-reser is the same with or without cashtokens flag
-            const auto serTx = BTC::Serialize(*tx, false, false);
-            TEST_CHECK(BTC::Serialize(BTC::Deserialize<CTransaction>(serTx, 0, false, false, true), false, false)
+            const auto serTx = BTC::Serialize(*tx, false);
+            TEST_CHECK(BTC::Serialize(BTC::Deserialize<CTransaction>(serTx, 0, false, true), false)
                         == serTx);
         }
 
         // Next, deserialize *with* CashTokens
         {
-            const CBlock block = BTC::Deserialize<CBlock>(blockData, 0, false, false, true, true);
+            const CBlock block = BTC::Deserialize<CBlock>(blockData, 0, false, true, true);
             TEST_CHECK_EQUAL(block.GetHash().ToString(), hashBlock);
             const auto &tx = block.vtx.at(nCtTxn);
             TEST_CHECK_EQUAL(tx->GetHash().ToString(), hashCtTxn);
@@ -2965,10 +2965,10 @@ TEST_SUITE(token)
             TEST_CHECK(!std::equal(tokenBlob.begin(), tokenBlob.end(),
                                    txout.scriptPubKey.begin(), txout.scriptPubKey.end()));
             // ensure re-serialization works
-            TEST_CHECK(BTC::Serialize(block, false, false) == blockData);
+            TEST_CHECK(BTC::Serialize(block, false) == blockData);
             // ensure ser-reser is the same with or without cashtokens flag
-            const auto serTx = BTC::Serialize(*tx, false, false);
-            TEST_CHECK(BTC::Serialize(BTC::Deserialize<CTransaction>(serTx, 0, false, false, false), false, false)
+            const auto serTx = BTC::Serialize(*tx, false);
+            TEST_CHECK(BTC::Serialize(BTC::Deserialize<CTransaction>(serTx, 0, false, false), false)
                         == serTx);
         }
     };
@@ -3642,7 +3642,7 @@ TEST_SUITE(streams)
     };
 
     TEST_CASE(txn_ser_deser) {
-        using TestTup = std::tuple<const char *, const char *, bool, bool, size_t>;
+        using TestTup = std::tuple<const char *, const char *, bool, size_t>;
         auto tests = {
             // Bitcoin Cash & Bitcoin Legacy txn
             TestTup{R"(01000000016bff7fcd4f8565ef406dd5d63d4ff94f318fe82027fd4dc451b04474019f74b4000000008c49304602
@@ -3652,7 +3652,7 @@ TEST_SUITE(streams)
                        ffff028ba7940e000000001976a914badeecfdef0507247fc8f74241d73bc039972d7b88ac4094a8020000000019
                        76a914c10932483fec93ed51f5fe95e72559f2cc7043f988ac00000000)",
                     "e2769b09e784f32f62ef849763d4f45b98e07ba658647343b915ff832b110436",
-                    false, false, 259},
+                    false, 259},
             // A Bitcoin SegWit txn
             TestTup{R"(020000000001017fca10937571ed2ae3a67005f831c307b7f502f9c5f6cae42fcbf2bdf7b457960200000000fdffffff02d9bd0000000000001976a9
                        14d3d71dcf7fa27bb9375f52ffad5162c0d0da7ee988ac4dc20e0000000000220020e8c919a22e5fc0c47c068b1b607dcf6fa4550198e85a2cd87041
@@ -3662,7 +3662,7 @@ TEST_SUITE(streams)
                        3b1aaee2066e33352103552a0b1c0465a14754c3298d5dd3bbbdb74f54ba75493e08f556e64ac1dbab7c210374f3e239bf6a0b988d6bbd1798fa3282
                        9ceec30f4d345b4be172190d9e805ece53ae00000000)",
                     "fd525706b54f42498ad2c51236e3aa1b74ec2dd043a1b7bbc443c06455414a31",
-                    true, false, 191},
+                    true, 191},
             // A Bitcoin SegWit txn
             TestTup{R"(01000000000101ba0ef439a946f417940dd0fb26c54692a00e5f263f63af2a837fc25e6250580c0100000000ffffffff0df769080000000000160014
                        0b6bca0325d34401c96b457d1213997ad0003b93b9217a1600000000160014dc6bf86354105de2fcd9868a2b0376d6731cb92f247e7a000000000016
@@ -3675,7 +3675,7 @@ TEST_SUITE(streams)
                        3214cb9502473044022024b90895e4f791f5a09c5a56b8df5e870a80c4754db6d270d0337b26ef6e6b9802205ec897137df02d8d2b47c39d005c399f
                        297db618f17e210d06cdd39cf07f4a94012102174ee672429ff94304321cdae1fc1e487edf658b34bd1d36da03761658a2bb0900000000)",
                     "6f5119f2b8172ec27500b14bc452231d73b339762491e68c5ee5e6abc43769c9",
-                    true, false, 513},
+                    true, 513},
             // A Bitcoin SegWit txn
             TestTup{R"(01000000000105434572a59309747eaaad5a4f0b039ce085821325e099173ae1cbd9db4fe8872a00000000171600146948ad786cfdd82d4150c8a0e6
                        96a138916c3e37ffffffff22fabb0c1cb2fede0be9561b38e87f83294c72dc9c6a6b96803d9496eef93df40b00000017160014a881b2c49c31aea9eb
@@ -3694,7 +3694,7 @@ TEST_SUITE(streams)
                        6a48cd49b7c2c3df8a20eb27f8f6ca70d2037502201ab1ee98611aae0eec3e071532057870a031be18594c303edf455c9776244ad8012103025f0a71
                        0c685e3a1941b9479b2dfc934ddf72b3666e0b19a7c96f32af290e1700000000)",
                     "4a3c65776ea58fde4bf07f5cffcd8c87d43f9efa4cbe2336dc56dbd7f19789fd",
-                    true, false, 529},
+                    true, 529},
             // A Bitcoin SegWit + TapScript txn
             TestTup{R"(0200000000010ce5313805cd7b8c29483fb1e3623cc08a583333dba43fd338b275c414abecff5e0300000000ffffffff1ebd47bdc9ddde53335d97b2
                        a504ea45f497f3da2b5fbc1cb6cf23228fe414270000000000ffffffff29e04008cf3d701b6141561926303064065ba93481561f44465c750fd6a7ef
@@ -3729,26 +3729,24 @@ TEST_SUITE(streams)
                        6edc2a8dc659d685cc52b982ced5f5dd7570d70c75d782cf1688a8d9590af0bd8a7e4d9b4872def81fc126bbb0f2f3841e830140fcf7f2e5a89d382f
                        f640e05635cb99201502e94a5b5977e8477852a8d2e978ec2ec82ad6991777a3128399c12a20bedce67304a9373a2163c9e03559138556e500000000)",
                     "454d3ae7cad101e2e3f25e48284ed71004bc11ab209752f1d552d40b11c5bc9f",
-                    true, false, 1286},
-            // A Litecoin SegWit txn
+                    true, 1286},
+            // A SegWit (P2TR output) txn
             TestTup{R"(010000000001016b4d406ef4d1decf7e4c83267047fde1cdb05920ad3dbf6b729811e25af79cb50100000000fdffffff020032000000000000225120ad5e3045b5331bd06c30d44566b253709e174c0330f2f8b6d12e079703ec15aec8c71000000000001600148961f139b8da0710236be0ecbc32f2e21718271502473044022038d499eabf23e31174e4c076a254b033c4f3ede93b8eb17ef19c950683208dcb02207d5d9b82d482167b30501e99d02a35c3908b1f13564cd97f4d79eefe2ed834c2012102d9bd4c712605e7f2fcd12b4c99d76db895b116e27565ddfa79234847b6a27c9700000000)",
-                    "04eb55e09c99e5dd8c98c82cd8294d8eaa3bc474e5d4f88b27935fbcd2115e82", true, false, 152}
+                    "04eb55e09c99e5dd8c98c82cd8294d8eaa3bc474e5d4f88b27935fbcd2115e82", true, 152}
         };
-        for (const auto & [hex, txid, segwit, mweb, expected_vsize] : tests) {
+        for (const auto & [hex, txid, segwit, expected_vsize] : tests) {
             const std::vector<uint8_t> txndata = ParseHex(hex);
             std::vector<uint8_t> data;
             CMutableTransaction tx;
-            const int version = PROTOCOL_VERSION | SERIALIZE_TRANSACTION_USE_WITNESS | SERIALIZE_TRANSACTION_USE_MWEB | SERIALIZE_TRANSACTION_USE_CASHTOKENS;
+            const int version = PROTOCOL_VERSION | SERIALIZE_TRANSACTION_USE_WITNESS | SERIALIZE_TRANSACTION_USE_CASHTOKENS;
             VectorReader(SER_DISK, version, txndata, 0) >> tx;
             VectorReader vr(SER_DISK, version, txndata, 0);
             CTransaction ctx(deserialize, vr);
             TEST_CHECK(tx.GetId().ToString() == txid);
             TEST_CHECK(tx.GetHash().ToString() == txid);
-            TEST_CHECK(tx.HasMimble() == mweb);
             TEST_CHECK(tx.HasWitness() == segwit);
             TEST_CHECK(ctx.GetId().ToString() == txid);
             TEST_CHECK(ctx.GetHash().ToString() == txid);
-            TEST_CHECK(ctx.HasMimble() == mweb);
             TEST_CHECK(ctx.HasWitness() == segwit);
             TEST_CHECK(tx == ctx); // this does a check vs the hash
             TEST_CHECK(tx.GetWitnessHash() == ctx.GetWitnessHash());
@@ -3757,11 +3755,11 @@ TEST_SUITE(streams)
             data.clear();
             VectorWriter(SER_DISK, version, data, 0) << ctx; // ser constant tx
             TEST_CHECK(txndata == data);
-            const size_t rawSize = txndata.size(), vsize = tx.GetVirtualSize(), strippedSize = tx.GetTotalSize(false, false);
+            const size_t rawSize = txndata.size(), vsize = tx.GetVirtualSize(), strippedSize = tx.GetTotalSize(false);
             //DebugM("Tx rawSize: ", rawSize, ", vsize: ", vsize, " stripped size: ", strippedSize);
             TEST_CHECK(vsize == expected_vsize);
-            TEST_CHECK(tx.GetTotalSize(segwit, mweb) == rawSize);
-            if (segwit || mweb) {
+            TEST_CHECK(tx.GetTotalSize(segwit) == rawSize);
+            if (segwit) {
                 TEST_CHECK(vsize != rawSize && rawSize > strippedSize);
                 TEST_CHECK(tx.GetHash() != tx.GetWitnessHash());
             } else {

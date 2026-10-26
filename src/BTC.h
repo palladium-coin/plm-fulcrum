@@ -44,8 +44,8 @@
 /// this namespace is not specific to Bitcoin (Core), but applies to BCH as well.
 namespace BTC
 {
-    /// Used by the Storage and Controller subsystem to figure out what coin we are on (BCH vs BTC vs LTC)
-    enum class Coin { Unknown = 0, BCH, BTC, LTC, PLM };
+    /// Used by the Storage and Controller subsystem to figure out what coin we are on (BCH vs BTC vs PLM)
+    enum class Coin { Unknown = 0, BCH, BTC, PLM };
 
     QString coinToName(Coin);
     Coin coinFromName(const QString &);
@@ -67,23 +67,21 @@ namespace BTC
     /// Specify from_pos=-1 for appending at the end.  Returns a reference to the passed-in buffer.  This is very fast
     /// and done in-place.
     template <typename BitcoinObject>
-    QByteArray & Serialize(QByteArray &buf, const BitcoinObject &thing, int from_pos = -1, bool allowSegWit = false,
-                           bool allowMW = false)
+    QByteArray & Serialize(QByteArray &buf, const BitcoinObject &thing, int from_pos = -1, bool allowSegWit = false)
     {
         if (from_pos < 0) from_pos = buf.size();
         int version = bitcoin::PROTOCOL_VERSION;
         if (allowSegWit) version |=  bitcoin::SERIALIZE_TRANSACTION_USE_WITNESS;
-        if (allowMW) version |= bitcoin::SERIALIZE_TRANSACTION_USE_MWEB;
         bitcoin::GenericVectorWriter<QByteArray> vw(bitcoin::SER_NETWORK, version, buf, from_pos);
         thing.Serialize(vw);
         return buf;
     }
     /// Convenience for above -- serialize to a new QByteArray directly
     template <typename BitcoinObject>
-    QByteArray Serialize(const BitcoinObject &thing, bool allowSegWit = false, bool allowMW = false)
+    QByteArray Serialize(const BitcoinObject &thing, bool allowSegWit = false)
     {
         QByteArray ret;
-        Serialize(ret, thing, -1, allowSegWit, allowMW);
+        Serialize(ret, thing, -1, allowSegWit);
         return ret;
     }
     /// Deserialize to a pre-allocated bitcoin object such as bitcoin::CBlock, bitcoin::CBlockHeader,
@@ -93,11 +91,10 @@ namespace BTC
     /// (use the non-in-place specialization instead)
     requires (!std::is_same_v<std::remove_cvref_t<BitcoinObject>, bitcoin::CTransaction>)
     void Deserialize(BitcoinObject &thing, const QByteArray &bytes, int pos = 0, bool allowSegWit = false,
-                     bool allowMW = false, bool allowCashTokens = true, bool throwIfJunkAtEnd = false)
+                     bool allowCashTokens = true, bool throwIfJunkAtEnd = false)
     {
         int version = bitcoin::PROTOCOL_VERSION;
         if (allowSegWit) version |= bitcoin::SERIALIZE_TRANSACTION_USE_WITNESS;
-        if (allowMW) version |= bitcoin::SERIALIZE_TRANSACTION_USE_MWEB;
         if (allowCashTokens) version |= bitcoin::SERIALIZE_TRANSACTION_USE_CASHTOKENS;
         bitcoin::GenericVectorReader<QByteArray> vr(bitcoin::SER_NETWORK, version, bytes, pos);
         thing.Unserialize(vr);
@@ -107,11 +104,11 @@ namespace BTC
     }
     /// Convenience for above.  Create an instance of object and deserialize to it
     template <typename BitcoinObject>
-    BitcoinObject Deserialize(const QByteArray &bytes, int pos = 0, bool allowSegWit = false, bool allowMW = false,
+    BitcoinObject Deserialize(const QByteArray &bytes, int pos = 0, bool allowSegWit = false,
                               bool allowCashTokens = true, bool noJunkAtEnd = false)
     {
         BitcoinObject ret;
-        Deserialize(ret, bytes, pos, allowSegWit, allowMW, allowCashTokens, noJunkAtEnd);
+        Deserialize(ret, bytes, pos, allowSegWit, allowCashTokens, noJunkAtEnd);
         return ret;
     }
 
@@ -121,24 +118,26 @@ namespace BTC
                         || std::is_same_v<bitcoin::CMutableTransaction, std::decay_t<BO>>;
 
     /// Template specialization for CTransaction which has const fields and works a little differently
-    template <> inline bitcoin::CTransaction Deserialize(const QByteArray &ba, int pos, bool allowSegWit, bool allowMW,
+    template <> inline bitcoin::CTransaction Deserialize(const QByteArray &ba, int pos, bool allowSegWit,
                                                          bool allowCashTokens, bool noJunkAtEnd)
     {
         // This *does* move the vectors from CMutableTransaction -> CTransaction
-        return bitcoin::CTransaction{Deserialize<bitcoin::CMutableTransaction>(ba, pos, allowSegWit, allowMW,
+        return bitcoin::CTransaction{Deserialize<bitcoin::CMutableTransaction>(ba, pos, allowSegWit,
                                                                                allowCashTokens, noJunkAtEnd)};
     }
 
     /// Convenience to deserialize segwit object (block or tx) (Core only)
     template <BlockOrTx BitcoinObject>
     BitcoinObject DeserializeSegWit(const QByteArray &ba, int pos = 0) {
-        return Deserialize<BitcoinObject>(ba, pos, /* segwit= */ true, /* mw= */ false, /* cashtokens= */false);
+        return Deserialize<BitcoinObject>(ba, pos, /* segwit= */ true, /* cashtokens= */false);
     }
 
     /// Convenience to serialize segwit object (block or tx) (Core only)
     template <BlockOrTx BitcoinObject>
     QByteArray SerializeSegWit(const BitcoinObject &bo, int pos = -1) {
-        return Serialize<BitcoinObject>(bo, pos, true, false);
+        QByteArray ret;
+        Serialize(ret, bo, pos, true);
+        return ret;
     }
 
     /// Used for scripthash_unspent db value and/or for TXOInfo inside utxoset db. May throw on deser failure or will

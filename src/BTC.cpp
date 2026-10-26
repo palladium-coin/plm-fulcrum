@@ -188,13 +188,12 @@ namespace BTC
         return nameNetMap.value(name, Net::Invalid /* default if not found */);
     }
 
-    namespace { const QString coinNameBCH{"BCH"}, coinNameBTC{"BTC"}, coinNameLTC{"LTC"}, coinNamePLM{"PLM"}; }
+    namespace { const QString coinNameBCH{"BCH"}, coinNameBTC{"BTC"}, coinNamePLM{"PLM"}; }
     QString coinToName(Coin c) {
         QString ret; // for NRVO
         switch (c) {
         case Coin::BCH: ret = coinNameBCH; break;
         case Coin::BTC: ret = coinNameBTC; break;
-        case Coin::LTC: ret = coinNameLTC; break;
         case Coin::PLM: ret = coinNamePLM; break;
         case Coin::Unknown: break;
         }
@@ -203,7 +202,6 @@ namespace BTC
     Coin coinFromName(const QString &s) {
         if (s == coinNameBCH) return Coin::BCH;
         if (s == coinNameBTC) return Coin::BTC;
-        if (s == coinNameLTC) return Coin::LTC;
         if (s == coinNamePLM) return Coin::PLM;
         return Coin::Unknown;
     }
@@ -217,7 +215,7 @@ namespace BTC
                     strprintf("Expected token prefix byte 0x%02x, instead got 0x%02x in %s at position %i",
                               bitcoin::token::PREFIX_BYTE, uint8_t(ba[pos-1]), __func__, pos-1));
             ret.emplace();
-            BTC::Deserialize<bitcoin::token::OutputData>(*ret, ba, pos , false, false,
+            BTC::Deserialize<bitcoin::token::OutputData>(*ret, ba, pos , false,
                                                          true /* cashTokens */,
                                                          true /* noJunkAtEnd */);
         }

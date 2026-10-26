@@ -64,11 +64,9 @@ struct SynchMempoolTask::Precache {
     void threadFunc(size_t reserve, Mempool::TxHashSet tentativeMempoolTxHashes);
 };
 
-SynchMempoolTask::SynchMempoolTask(Controller *ctl_, std::shared_ptr<Storage> storage, const std::atomic_bool & notifyFlag,
-                                   const std::unordered_set<TxHash, HashHasher> & ignoreTxns)
+SynchMempoolTask::SynchMempoolTask(Controller *ctl_, std::shared_ptr<Storage> storage, const std::atomic_bool & notifyFlag)
     : CtlTask(ctl_, "SynchMempool"), storage(storage), notifyFlag(notifyFlag),
-      txnIgnoreSet(ignoreTxns), isSegWit(ctl_->isSegWitCoin()), isMimble(ctl_->isMimbleWimbleCoin()),
-      isCashTokens(ctl_->isBCHCoin()), precache{std::make_unique<Precache>(*this)}
+      isSegWit(ctl_->isSegWitCoin()), isCashTokens(ctl_->isBCHCoin()), precache{std::make_unique<Precache>(*this)}
 {
     scriptHashesAffected.reserve(SubsMgr::kRecommendedPendingNotificationsReserveSize);
     txidsAffected.reserve(SubsMgr::kRecommendedPendingNotificationsReserveSize);
@@ -101,7 +99,6 @@ SynchMempoolTask::~SynchMempoolTask()
 void SynchMempoolTask::clear() {
     state = State::Start;
     txsNeedingDownload.clear(); txsWaitingForResponse.clear(); txsDownloaded.clear(); txsFailedDownload.clear();
-    txsIgnored.clear();
     expectedNumTxsDownloaded = 0;
     lastProgress = 0.;
     precache->stopThread();
@@ -237,7 +234,7 @@ void SynchMempoolTask::updateLastProgress(std::optional<double> val)
 {
     double p;
     if (val) p = *val;
-    else p = 0.5 * (txsDownloaded.size() + txsFailedDownload.size() + txsIgnored.size()) / std::max(double(expectedNumTxsDownloaded), 1.0);
+    else p = 0.5 * (txsDownloaded.size() + txsFailedDownload.size()) / std::max(double(expectedNumTxsDownloaded), 1.0);
     lastProgress = std::clamp(p, 0.0, 1.0);
 }
 
@@ -296,7 +293,7 @@ void SynchMempoolTask::doGetRawMempool()
     submitRequest("getrawmempool", {false}, [this, t0 = Tic()](const RPC::Message & resp) mutable {
         t0.fin();
         const Tic t1;
-        std::size_t newCt = 0, droppedCt = 0, ignoredCt = 0;
+        std::size_t newCt = 0, droppedCt = 0;
         const QVariantList txidList = resp.result().toList();
         Mempool::TxHashSet droppedTxs, tentativeMempoolTxHashesForPrecacher;
         {
@@ -318,25 +315,19 @@ void SynchMempoolTask::doGetRawMempool()
                 droppedTxs.erase(it); // mark this tx as "not dropped" since it was in the mempool before and is in the mempool now.
                 if (TRACE) Debug() << "Existing mempool tx: " << hash.toHex();
             } else {
-                if (txnIgnoreSet.contains(hash)) {
-                    // suppressed txn (in ignore set)
-                    if (TRACE) Debug() << "Ignored mempool tx: " << hash.toHex();
-                    ++ignoredCt;
-                } else {
-                    // new txn
-                    if (TRACE) Debug() << "New mempool tx: " << hash.toHex();
-                    tentativeMempoolTxHashesForPrecacher.emplace(hash);
-                    ++newCt;
-                    const auto & [it2, inserted] = txsNeedingDownload.try_emplace(hash, std::make_shared<Mempool::Tx>());
-                    Mempool::TxRef & tx = it2->second;
-                    if (!inserted) [[unlikely]] {
-                        // this should never happen
-                        Error() << "FIXME: Error inserting tx into txsNeedingDownload map, already there! TxId: " << hash.toHex();
-                        assert(bool(tx));
-                    }
-                    tx->hashXs.max_load_factor(.9); // hopefully this will save some memory by expicitly setting max table size to 90%
-                    tx->hash = hash;
+                // new txn
+                if (TRACE) Debug() << "New mempool tx: " << hash.toHex();
+                tentativeMempoolTxHashesForPrecacher.emplace(hash);
+                ++newCt;
+                const auto & [it2, inserted] = txsNeedingDownload.try_emplace(hash, std::make_shared<Mempool::Tx>());
+                Mempool::TxRef & tx = it2->second;
+                if (!inserted) [[unlikely]] {
+                    // this should never happen
+                    Error() << "FIXME: Error inserting tx into txsNeedingDownload map, already there! TxId: " << hash.toHex();
+                    assert(bool(tx));
                 }
+                tx->hashXs.max_load_factor(.9); // hopefully this will save some memory by expicitly setting max table size to 90%
+                tx->hash = hash;
             }
         }
         if (!droppedTxs.empty()) {
@@ -382,7 +373,7 @@ void SynchMempoolTask::doGetRawMempool()
         }
 
         if (newCt || droppedCt)
-            DebugM(resp.method, ": got reply with ", txidList.size(), " items, ", ignoredCt, " ignored, ",
+            DebugM(resp.method, ": got reply with ", txidList.size(), " items, ",
                    droppedCt, " dropped, ", newCt, " new",
                    " (reply took: ", t0.msecStr(), " msec, processing took: ", t1.msecStr(), " msec)");
         expectedNumTxsDownloaded = unsigned(newCt);
@@ -434,39 +425,7 @@ void SynchMempoolTask::doDLNextTx()
             // deserialize tx, catching any deser errors
             bitcoin::CMutableTransaction ctx;
             try {
-                ctx = BTC::Deserialize<bitcoin::CMutableTransaction>(txdata, 0, isSegWit, isMimble, isCashTokens, true /* nojunk */);
-                // Below branch is taken only for Litecoin
-                if (isMimble) {
-                    if (ctx.mw_blob && ctx.mw_blob->size() > 1) {
-                        const auto n = std::min(size_t(60), ctx.mw_blob->size());
-                        DebugM("MimbleTxn in mempool:  hash: ", tx->hash.toHex(), ", IsWebOnly: ", int(ctx.IsMWEBOnly()),
-                               ", vin,vout sizes: [", ctx.vin.size(), ", ", ctx.vout.size(), "]", ", data_size: ",
-                               ctx.mw_blob->size(), ", first ", n, " bytes: ",
-                               Util::ToHexFast(QByteArray::fromRawData(reinterpret_cast<const char *>(ctx.mw_blob->data()), n)),
-                               ", nLockTime: ", ctx.nLockTime);
-                    }
-                    // Discard MWEB-only txns (they are useless to us for now)
-                    if (/* Note: we would normally check ctx.IsMWEBOnly() here, but if litecoind is using
-                           -rpcserialversion=1, then that will return false. So instead we reduce the check to considering
-                           MWEB-only as any txn lacking CTxIns and CTxOuts.  (Only mweb-only txns look that way on LTC.) */
-                        ctx.vin.empty() && ctx.vout.empty()) {
-                        // Ignore MWEB-only txns completely:
-                        // - their txid is weird and hard to calculate for us (requires blake3 hasher, which we lack)
-                        //   - if remote litecoind is running rpcserialversion=1, then we wouldn't be able to calculate
-                        //     their hash anyway since the mweb data is omitted (even though they are listed in mempool
-                        //     in that serialization mode anyway -- which makes no sense!!).
-                        // - they contain empty vins and vouts, and since Electrum-LTC doesn't grok MWEB, we cannot do anything
-                        //   with their spend info anyway.
-                        DebugM("Ignoring MWEB-only txn: ", tx->hash.toHex());
-                        // mark this as "ignored"
-                        emit ctl->ignoreMempoolTxn(tx->hash); // tell Controller in a thread-safe way to remember this across SynchMempoolTask invocations
-                        txsIgnored.insert(tx->hash);
-                        txsWaitingForResponse.erase(tx->hash);
-                        // keep going (do a direct call for better performance, rather than calling AGAIN)
-                        process();
-                        return;
-                    }
-                }
+                ctx = BTC::Deserialize<bitcoin::CMutableTransaction>(txdata, 0, isSegWit, isCashTokens, true /* nojunk */);
             } catch (const std::exception &e) {
                 Error() << "Error deserializing tx: " << tx->hash.toHex() << ", exception: " << e.what();
                 emit errored();
@@ -544,14 +503,14 @@ void SynchMempoolTask::doDLNextTx()
 
 void SynchMempoolTask::processResults()
 {
-    if (const auto total = txsDownloaded.size() + txsFailedDownload.size() + txsIgnored.size(); total != expectedNumTxsDownloaded) {
+    if (const auto total = txsDownloaded.size() + txsFailedDownload.size(); total != expectedNumTxsDownloaded) {
         Error() << __PRETTY_FUNCTION__ << ": Expected to downlaod " << expectedNumTxsDownloaded << ", instead got "
                 << total << ". FIXME!";
         emit errored();
         return;
     } else if (total) {
-        DebugM("downloaded ", txsDownloaded.size(), " txs (failed: ", txsFailedDownload.size(), ", ignored: ",
-               txsIgnored.size(), "), elapsed so far: ", elapsed.secsStr(), " secs");
+        DebugM("downloaded ", txsDownloaded.size(), " txs (failed: ", txsFailedDownload.size(),
+               "), elapsed so far: ", elapsed.secsStr(), " secs");
     }
 
     updateLastProgress(0.6);
@@ -575,12 +534,12 @@ void SynchMempoolTask::processResults()
     // At this point we pre-cached all the confirmed spends (we hope). Now ensure that no downloaded children
     // depended on a failed-to-download parent (usually happens on BTC with RBF). If we fail to do this mempool
     // can end up in an inconsistent state and some scripthashes won't get notifications.
-    if (!txsFailedDownload.empty() || !txsIgnored.empty()) {
+    if (!txsFailedDownload.empty()) {
         Tic t0;
         auto hasFailedParent = [this](const bitcoin::CTransaction &ctx) {
             for (const auto &in : ctx.vin) {
                 const TxHash prevoutHash = BTC::Hash2ByteArrayRev(in.prevout.GetTxId());
-                if (txsFailedDownload.count(prevoutHash) || txsIgnored.count(prevoutHash)) {
+                if (txsFailedDownload.count(prevoutHash)) {
                     return true;
                 }
             }

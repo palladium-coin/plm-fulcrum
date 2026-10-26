@@ -1589,7 +1589,7 @@ Storage::TokenFilterOption Server::parseTokenFilterOptionCommon(Client *c, const
     else if (!hasArg) {
         if (isNotBCH || c->hasMinimumTokenAwareVersion())
             // Default for token-aware clients: include tokens
-            // Note that for BTC, LTC, etc -- we also "include tokens" so as to not apply any filtering here. Actual tx
+            // Note that for BTC, PLM, etc -- we also "include tokens" so as to not apply any filtering here. Actual tx
             // data should *not* have any tokens on these chains.
             return Storage::TokenFilterOption::IncludeTokens;
         else
@@ -2069,9 +2069,6 @@ void Server::rpc_blockchain_transaction_broadcast(Client *c, const RPC::BatchId 
                 if (coin == BTC::Coin::BTC) {
                     clientName = "Electrum";
                     website = "https://electrum.org/";
-                } else if (coin == BTC::Coin::LTC) {
-                    clientName = "Electrum-LTC";
-                    website = "https://electrum-ltc.org/";
                 } else {
                     clientName = "Electron Cash";
                     website = "https://electroncash.org/";
@@ -3116,7 +3113,7 @@ void AdminServer::rpc_getinfo(Client *c, const RPC::BatchId batchId, const RPC::
         mp["size_bytes"] = qulonglong(sizeTotal);
         mp["avg_fee_sats_B"] = sizeTotal ? long(std::round(double(feeTotal) / double(sizeTotal) * 100.0)) / 100.0 : 0.0;
         if (sizeTotal != vsizeTotal) {
-            // add these elements to the info map if BTC, LTC, etc
+            // add these elements to the info map if BTC, PLM, etc
             mp["size_vbytes"] = qulonglong(vsizeTotal);
             mp["avg_fee_sats_vB"] = vsizeTotal ? long(std::round(double(feeTotal) / double(vsizeTotal) * 100.0)) / 100.0 : 0.0;
         }

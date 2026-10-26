@@ -69,14 +69,11 @@ public:
     /// for debug printing when it receives new mempool tx's.
     static void printMempoolStatusToLog(size_t newSize, size_t numAddresses, double msec, bool useDebugLogger, bool force = false);
 
-    /// Thread-safe, lock-free, returns true for BTC, LTC and PLM
+    /// Thread-safe, lock-free, returns true for BTC and PLM
     bool isSegWitCoin() const {
         auto const c = coinType.load(std::memory_order_relaxed);
-        return c == BTC::Coin::BTC || c == BTC::Coin::LTC || c == BTC::Coin::PLM;
+        return c == BTC::Coin::BTC || c == BTC::Coin::PLM;
     }
-
-    /// Thread-safe, lock-free, returns true for LTC
-    bool isMimbleWimbleCoin() const { return coinType.load(std::memory_order_relaxed) == BTC::Coin::LTC; }
 
     /// Thread-safe, lock-free, returns true for BCH. Note: also returns true for "Unknown" coins since we "prefer" BCH
     /// if we happen to have a regression where the coin info is not propagated from BitcoinDMgr. This is to ensure
@@ -126,11 +123,6 @@ signals:
 
     /// Emitted only iff the user specified --dump-sh on the CLI. This is emitted once the script hash dump has completed.
     void dumpScriptHashesComplete();
-
-    /// "Private" signal, not intended to be used by outside code.  Used internally to mark a txHash as to be "ignored"
-    /// and not downloaded from the mempool.  The private SynchMempoolTask emits this to add hashes to our mempoolIgnoreTxns
-    /// set in a thread-safe manner
-    void ignoreMempoolTxn(const QByteArray & txhash);
 
     /// Emitted whenever we begin downloading blocks, and whenever we end the last DownloadBlocksTask (for whatever reason)
     void downloadingBlocks(bool b);
@@ -280,11 +272,6 @@ private:
 
     /// Stops all notifiers that are running. If cleanup==true also deletes all notifier instances.
     void zmqStopAll(bool cleanup = false);
-
-    /// Litecoin only: Ignore these txhashes from mempool (don't download them). This gets cleared each time
-    /// before the first SynchMempool after we receive a new block, then is persisted for all the SynchMempools
-    /// for that block, until a new block arrives, then is cleared again.
-    std::unordered_set<TxHash, HashHasher> mempoolIgnoreTxns;
 
     /// Used to update the mempool fee histogram early right after the synchedMempool() signal is emitted
     bool needFeeHistogramUpdate = true;

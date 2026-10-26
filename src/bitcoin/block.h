@@ -62,9 +62,6 @@ public:
     // network and disk
     std::vector<CTransactionRef> vtx;
 
-    /// Litecoin only
-    litecoin_bits::MimbleBlobPtr mw_blob;
-
     // memory only
     mutable bool fChecked;
 
@@ -78,23 +75,11 @@ public:
     SERIALIZE_METHODS(CBlock, obj) {
         READWRITEAS(CBlockHeader, obj);
         READWRITE(obj.vtx);
-        // Litecoin only -- Deserialize the mimble-wimble blob at the end under certain conditions (post-activation).
-        if constexpr (ser_action.ForRead()) obj.mw_blob.reset();
-        if (s.GetVersion() & SERIALIZE_TRANSACTION_USE_MWEB && obj.vtx.size() >= 2 && obj.vtx.back()->IsHogEx()) {
-            if constexpr (ser_action.ForRead()) {
-                obj.mw_blob = litecoin_bits::EatBlockMimbleBlob(s);
-            } else {
-                if (obj.mw_blob) {
-                    s.write(reinterpret_cast<const char *>(std::as_const(*obj.mw_blob).data()), obj.mw_blob->size());
-                }
-            }
-        }
     }
 
     void SetNull() {
         CBlockHeader::SetNull();
         vtx.clear();
-        mw_blob.reset();
         fChecked = false;
     }
 

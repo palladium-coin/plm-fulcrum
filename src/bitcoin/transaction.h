@@ -7,7 +7,6 @@
 #pragma once
 
 #include "amount.h"
-#include "litecoin_bits.h"
 #include "script.h"
 #include "serialize.h"
 #include "token.h"
@@ -37,9 +36,6 @@ static constexpr int SERIALIZE_TRANSACTION = 0x00;
 // Added by Calin, imported from Core. Note in Core this flag has the *opposite* meaning
 // (there it is called SERIALIZE_TRANSACTION_NO_WITNESS
 static constexpr int SERIALIZE_TRANSACTION_USE_WITNESS = 0x40000000;
-// Added by Calin, imported from Litecoin. Note in Litecoin this flag has the *opposite* meaning
-// (there it is called SERIALIZE_NO_MWEB
-static constexpr int SERIALIZE_TRANSACTION_USE_MWEB = 0x20000000;
 // Added by Calin to optionally enable/disbale token ser/deser (BCH-specific)
 static constexpr int SERIALIZE_TRANSACTION_USE_CASHTOKENS = 0x10000000;
 
@@ -217,20 +213,16 @@ class CMutableTransaction;
  * - std::vector<CTxOut> vout
  * - if (flags & 1):
  *   - CTxWitness wit;
- * - if (flags & 8):
- *   - MWEB::Tx (Litecoin only)
  * - uint32_t nLockTime
  */
 template <typename Stream, typename TxType>
 inline void UnserializeTransaction(TxType &tx, Stream &s) {
-    // MODIFIED BY CALIN -- To allow for deserializing SegWit blocks as well as LTC MimbleWimble data
+    // MODIFIED BY CALIN -- To allow for deserializing SegWit blocks
     const bool fAllowWitness = s.GetVersion() & SERIALIZE_TRANSACTION_USE_WITNESS;
-    const bool fAllowMimble = s.GetVersion() & SERIALIZE_TRANSACTION_USE_MWEB;
     unsigned char flags = 0;
     s >> tx.nVersion;
     tx.vin.clear();
     tx.vout.clear();
-    tx.mw_blob.reset();
     /* Try to read the vin. In case the dummy is there, this will be read as an
      * empty vector. */
     s >> tx.vin;
@@ -258,13 +250,6 @@ inline void UnserializeTransaction(TxType &tx, Stream &s) {
             throw std::ios_base::failure("Superfluous witness record");
         }
     }
-    if (flags & 0x8 && fAllowMimble) {
-        /* mweb data, Litecoin only.  We don't really process it, we just slurp up the binarry data for eventual
-           serialization later. */
-        flags ^= 0x8;
-        tx.mw_blob = litecoin_bits::EatTxMimbleBlob(tx, s);
-    }
-
     if (flags) {
         /* Unknown flag in the serialization */
         throw std::ios_base::failure("Unknown transaction optional data");
@@ -279,9 +264,8 @@ inline void SerializeTransaction(const TxType &tx, Stream &s) {
     s << tx.vin;
     s << tx.vout;
     s << tx.nLockTime;*/
-    // MODIFIED BY CALIN: Allow for SegWit support to be able to sync to BTC, as well as MimbleWimble for LTC
+    // MODIFIED BY CALIN: Allow for SegWit support to be able to sync to BTC
     const bool fAllowWitness = s.GetVersion() & SERIALIZE_TRANSACTION_USE_WITNESS;
-    const bool fAllowMimble = s.GetVersion() & SERIALIZE_TRANSACTION_USE_MWEB;
 
     s << tx.nVersion;
     unsigned char flags = 0;
@@ -290,12 +274,6 @@ inline void SerializeTransaction(const TxType &tx, Stream &s) {
         /* Check whether witnesses need to be serialized. */
         if (tx.HasWitness()) {
             flags |= 1;
-        }
-    }
-    if (fAllowMimble) {
-        // Litecoin only
-        if (tx.mw_blob && !tx.mw_blob->empty()) {
-            flags |= 0x8;
         }
     }
     if (flags) {
@@ -309,10 +287,6 @@ inline void SerializeTransaction(const TxType &tx, Stream &s) {
     if (flags & 1) {
         for (const auto &txin : tx.vin)
             s << txin.scriptWitness.stack;
-    }
-    if (flags & 8) {
-        // Litecoin only: write mimble-wimble data blob back out
-        s.write(reinterpret_cast<const char *>(tx.mw_blob->data()), tx.mw_blob->size());
     }
     s << tx.nLockTime;
 }
@@ -334,9 +308,9 @@ public:
 
     /**
      * Get the total transaction size in bytes.
-     * @return Total transaction size in bytes, with or without segwit and/or mweb data included
+     * @return Total transaction size in bytes, with or without segwit data included
      */
-    size_t GetTotalSize(bool segwit = false, bool mweb = false) const;
+    size_t GetTotalSize(bool segwit = false) const;
 
     // Added by Calin to calculate virtual size for a SegWit txn which is: (3 * stripped_size + total_size) / 4
     size_t GetVirtualSize(std::optional<size_t> unstrippedSizeIfKnown = std::nullopt) const;
@@ -357,13 +331,6 @@ public:
 
     /// Added by Calin -- to support Core. Not cached, computed on-the-fly (this is not the case in Core code)
     TxHash GetWitnessHash() const { return TxHash{ComputeWitnessHash()}; }
-
-    /// Added by Calin to support Litecoin
-    bool HasMimble() const { return static_cast<bool>(tx().mw_blob); }
-    /// Litecoin only: "IsHogEx" is defined as an "IsNull" but present mimble blob. This tells the block
-    /// deserializer later to deserialize mimble block extention data at the end of the CBlock stream.
-    bool IsHogEx() const { return HasMimble() && tx().mw_blob->size() == 1 && tx().mw_blob->front() == 0; }
-    bool IsMWEBOnly() const { return HasMimble() && tx().mw_blob->size() > 1 && IsNull(); }
 
     std::string ToString(bool fVerbose = false) const;
 };
@@ -392,8 +359,6 @@ public:
     const std::vector<CTxIn> vin;
     const std::vector<CTxOut> vout;
     const uint32_t nLockTime;
-
-    const litecoin_bits::MimbleBlobPtr mw_blob; //! Litecoin only
 
 private:
     /** Memory only. */
@@ -431,8 +396,6 @@ public:
     std::vector<CTxIn> vin;
     std::vector<CTxOut> vout;
     uint32_t nLockTime;
-
-    litecoin_bits::MimbleBlobPtr mw_blob; //! Litecoin only
 
     CMutableTransaction();
     CMutableTransaction(const CTransaction &tx);

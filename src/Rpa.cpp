@@ -933,7 +933,7 @@ void test()
         QFile f(path);
         if (!f.open(QFile::ReadOnly)) throw Exception("Unable to open resource: " + path);
         const QByteArray blockData = f.readAll();
-        const auto block = BTC::Deserialize<bitcoin::CBlock>(blockData, 0, false, false, true, true);
+        const auto block = BTC::Deserialize<bitcoin::CBlock>(blockData, 0, false, true, true);
         Rpa::PrefixTable pft;
         VerifyTable vt;
 

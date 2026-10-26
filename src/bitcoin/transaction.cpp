@@ -56,10 +56,8 @@ uint256 CTransactionBase<Derived>::ComputeHash(bool segwit) const {
 }
 
 template <class Derived>
-size_t CTransactionBase<Derived>::GetTotalSize(const bool segwit, const bool mweb) const {
-    return GetSerializeSize(tx(), PROTOCOL_VERSION
-                                      | (segwit ? SERIALIZE_TRANSACTION_USE_WITNESS : 0)
-                                      | (mweb ? SERIALIZE_TRANSACTION_USE_MWEB : 0));
+size_t CTransactionBase<Derived>::GetTotalSize(const bool segwit) const {
+    return GetSerializeSize(tx(), PROTOCOL_VERSION | (segwit ? SERIALIZE_TRANSACTION_USE_WITNESS : 0));
 }
 
 template <class Derived>
@@ -70,12 +68,12 @@ size_t CTransactionBase<Derived>::GetVirtualSize(const std::optional<size_t> uns
     // As witness_size is equal to total_size - stripped_size, this formula is identical to:
     // weight = (stripped_size * 3) + total_size.
 
-    size_t weight = tx().GetTotalSize(false, false) * (WITNESS_SCALE_FACTOR - 1); // stripped of segwit and/or mweb
+    size_t weight = tx().GetTotalSize(false) * (WITNESS_SCALE_FACTOR - 1); // stripped of segwit
 
     if (unstrippedSizeIfKnown.has_value()) {
         weight += *unstrippedSizeIfKnown;
     } else {
-        weight += tx().GetTotalSize(true, true); // add unstripped size (include segwit and/or mweb data)
+        weight += tx().GetTotalSize(true); // add unstripped size (include segwit data)
     }
 
     return weight / WITNESS_SCALE_FACTOR; // vsize = weight / 4
@@ -121,7 +119,7 @@ CMutableTransaction::CMutableTransaction()
     : nVersion(CTransaction::CURRENT_VERSION), nLockTime(0) {}
 
 CMutableTransaction::CMutableTransaction(const CTransaction &tx)
-    : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime), mw_blob(tx.mw_blob) {}
+    : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime) {}
 
 TxId CMutableTransaction::GetId() const { return TxId(ComputeHash(false)); }
 TxHash CMutableTransaction::GetHash() const { return TxHash(ComputeHash(false)); }
@@ -133,11 +131,10 @@ TxHash CMutableTransaction::GetHash() const { return TxHash(ComputeHash(false));
 CTransaction::CTransaction() noexcept
     : nVersion{CTransaction::CURRENT_VERSION}, nLockTime{0u} {}
 CTransaction::CTransaction(const CMutableTransaction &tx)
-    : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime), mw_blob(tx.mw_blob),
-      hash(ComputeHash(false)) {}
+    : nVersion(tx.nVersion), vin(tx.vin), vout(tx.vout), nLockTime(tx.nLockTime), hash(ComputeHash(false)) {}
 CTransaction::CTransaction(CMutableTransaction &&tx)
     : nVersion(tx.nVersion), vin(std::move(tx.vin)), vout(std::move(tx.vout)), nLockTime(tx.nLockTime),
-      mw_blob(std::move(tx.mw_blob)), hash(ComputeHash(false)) {}
+      hash(ComputeHash(false)) {}
 
 } // end namespace bitcoin
 #ifdef __clang__
