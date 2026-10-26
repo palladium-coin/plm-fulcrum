@@ -1511,9 +1511,6 @@ void Server::rpc_blockchain_relayfee(Client *c, const RPC::BatchId batchId, cons
 //      below for boilerplate checking & parsing.
 HashX Server::parseFirstAddrParamToShCommon(const RPC::Message &m, QString *addrStrOut) const
 {
-    if (isNonBCH())
-        // unsupported on non-BCH (for now)
-        throw RPCError("blockchain.address.* methods are only available on BCH", RPC::ErrorCodes::Code_MethodNotFound);
     const auto net = srvmgr->net();
     if (net == BTC::Net::Invalid) [[unlikely]]
         // This should never happen in practice, but it pays to be paranoid.

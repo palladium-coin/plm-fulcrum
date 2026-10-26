@@ -462,8 +462,6 @@ SOURCES += \
     bitcoin/base58.cpp \
     bitcoin/bech32.cpp \
     bitcoin/block.cpp \
-    bitcoin/cashaddr.cpp \
-    bitcoin/cashaddrenc.cpp \
     bitcoin/crypto/aes.cpp \
     bitcoin/crypto/chacha20.cpp \
     bitcoin/crypto/ctaes/ctaes.c \
@@ -492,8 +490,6 @@ HEADERS += \
     bitcoin/base58.h \
     bitcoin/bech32.h \
     bitcoin/block.h \
-    bitcoin/cashaddr.h \
-    bitcoin/cashaddrenc.h \
     bitcoin/concepts.h \
     bitcoin/compat.h \
     bitcoin/crypto/byteswap.h \

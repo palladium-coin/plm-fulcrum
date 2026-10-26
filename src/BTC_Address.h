@@ -21,7 +21,6 @@
 #include "BTC.h"
 #include "Compat.h"
 
-#include "bitcoin/cashaddrenc.h"  // for bitcoin::CashAddrType
 #include "bitcoin/uint256.h"
 
 #include <QByteArray>
@@ -42,14 +41,12 @@ namespace BTC {
 
         enum Kind : Byte {
             Invalid = 0xff,
-            P2PKH = bitcoin::CashAddrType::PUBKEY_TYPE,             // 0
-            P2SH = bitcoin::CashAddrType::SCRIPT_TYPE,              // 1
-            TOKEN_P2PKH = bitcoin::CashAddrType::TOKEN_PUBKEY_TYPE, // 2
-            TOKEN_P2SH = bitcoin::CashAddrType::TOKEN_SCRIPT_TYPE,  // 3
-            // PLM only (bech32 / bech32m segwit addresses). Not valid cashaddr types.
-            P2WPKH = 4, ///< witness v0, 20 byte program
-            P2WSH = 5,  ///< witness v0, 32 byte program
-            P2TR = 6,   ///< witness v1 (taproot), 32 byte program
+            P2PKH = 0,  ///< base58
+            P2SH = 1,   ///< base58
+            // bech32 / bech32m segwit addresses
+            P2WPKH = 2, ///< witness v0, 20 byte program
+            P2WSH = 3,  ///< witness v0, 32 byte program
+            P2TR = 4,   ///< witness v1 (taproot), 32 byte program
         };
 
         static constexpr bool isWitnessKind(Kind k) noexcept { return k == P2WPKH || k == P2WSH || k == P2TR; }
@@ -58,14 +55,14 @@ namespace BTC {
 
         Address() noexcept = default;
         /// for the below 3 c'tors, the 'net' is auto-detected based on address.
-        Address(const QString &legacyOrCashAddress) { *this = Address::fromString(legacyOrCashAddress); }
-        Address(const char *legacyOrCashAddress) { *this = legacyOrCashAddress; }
-        Address(const QByteArray &legacyOrCashAddress) { *this = legacyOrCashAddress; }
+        Address(const QString &address) { *this = Address::fromString(address); }
+        Address(const char *address) { *this = address; }
+        Address(const QByteArray &address) { *this = address; }
 
-        /// Auto-detects Net based on decoded address contents. If `coin` is Coin::PLM the string is parsed as a PLM
-        /// base58 (P2PKH, P2SH) or bech32/bech32m (P2WPKH, P2WSH, P2TR) address; otherwise as BCH/BTC legacy or cashaddr.
-        static Address fromString(const QString &legacyOrCash, Coin coin = Coin::Unknown);
-        /// Note that for fromPubKey, kind must be P2PKH or TOKEN_P2PKH
+        /// Auto-detects Net based on decoded address contents. The string is parsed as a PLM base58 (P2PKH, P2SH) or
+        /// bech32/bech32m (P2WPKH, P2WSH, P2TR) address.
+        static Address fromString(const QString &address);
+        /// Note that for fromPubKey, kind must be P2PKH
         static Address fromPubKey(const Byte *pbegin, const Byte *pend, Kind, Net = MainNet);
         static Address fromPubKey(const QByteArray &pubKey, Kind kind, Net net = MainNet) { return fromPubKey(reinterpret_cast<const Byte *>(pubKey.constData()), reinterpret_cast<const Byte *>(pubKey.constData() + pubKey.length()), kind, net); }
         static Address fromPubKey(const std::vector<Byte> &pubKey, Kind kind, Net net = MainNet) { return fromPubKey(&*pubKey.begin(), &*pubKey.end(), kind, net); }
@@ -76,15 +73,12 @@ namespace BTC {
 
         Kind kind() const noexcept { return _kind; }
         Net net() const noexcept { return _net; }
-        Coin coin() const noexcept { return _coin; }
 
         //! Returns true if this address is valid would be identical if encoded on network `net`.
-        //! This is only true for TestNet, TestNet4, & ScaleNet which are interchangeable.
+        //! This is only true for TestNet & RegTestNet base58 addresses which are interchangeable.
         bool isCompatibleWithNet(Net net) const;
 
-        bool isTestNet() const noexcept { return _net == TestNet || _net == TestNet4; }
-        bool isChipNet() const noexcept { return _net == ChipNet; }
-        bool isScaleNet() const noexcept { return _net == ScaleNet; }
+        bool isTestNet() const noexcept { return _net == TestNet; }
         bool isRegTestNet() const noexcept { return _net == RegTestNet; }
         bool isMainNet() const noexcept { return _net == MainNet; }
 
@@ -93,8 +87,8 @@ namespace BTC {
                     && _net != Net::Invalid && verByte != InvalidVerByte;
         }
 
-        /// test any string to see if it's a valid address for the specified network (and coin)
-        static bool isValid(const QString &legacyOrCashAddress, Net = MainNet, Coin = Coin::Unknown);
+        /// test any string to see if it's a valid address for the specified network
+        static bool isValid(const QString &address, Net = MainNet);
 
         /// Returns the bitcoin script bytes as would be used in a spending transaction.
         /// for use with CTransaction et al in the txOut )
@@ -103,27 +97,20 @@ namespace BTC {
         /// hashed once with sha256, as raw bytes. (in reversed memory order, as EX/Fulcrum would use for its HashX)
         QByteArray toHashX() const;
 
-        /// If isValid, returns the address as a string (either cash address w/ prefix, or legacy address string).
-        /// For PLM the `legacy` flag is ignored: P2PKH & P2SH are base58, the witness kinds are bech32/bech32m.
+        /// If isValid, returns the address as a string: P2PKH & P2SH are base58, the witness kinds are bech32/bech32m.
         /// Returns an empty QString if !isValid.
-        QString toString(bool legacy=false) const { return toString(legacy, std::nullopt); }
+        QString toString() const;
 
-        /// If isValid, returns the address as a cash address string, without the bitcoincash: or bchtest:, etc, prefix.
-        QString toShortString() const;
-
-        /// Alias for toString(true)
-        QString toLegacyString() const { return toString(true); }
-
-        Address & operator=(const QString &legacyOrCash) { return (*this = Address::fromString(legacyOrCash)); }
-        Address & operator=(const char *legacyOrCash) { return (*this = QString(legacyOrCash)); }
-        Address & operator=(const QByteArray &legacyOrCash) { return (*this = QString(legacyOrCash)); }
+        Address & operator=(const QString &address) { return (*this = Address::fromString(address)); }
+        Address & operator=(const char *address) { return (*this = QString(address)); }
+        Address & operator=(const QByteArray &address) { return (*this = QString(address)); }
 
         /// Comparison operator: for map support and also so that it sorts like the text address would.
         /// All invalid addresses sort before valid ones.
         std::strong_ordering operator<=>(const Address & o) const noexcept {
             if (isValid() && o.isValid())
                 // lex-compare using 3-way tuple compare
-                return std::tie(_net, verByte, _kind, _hash, _coin) <=> std::tie(o._net, o.verByte, o._kind, o._hash, o._coin);
+                return std::tie(_net, verByte, _kind, _hash) <=> std::tie(o._net, o.verByte, o._kind, o._hash);
             else
                 // invalid always sorts before valid; both invalid are equal
                 return isValid() - o.isValid() <=> 0;
@@ -134,12 +121,9 @@ namespace BTC {
     private:
         Net _net = BTC::Invalid;
         Byte verByte = InvalidVerByte;
-        QByteArray _hash; // this holds either a p2pkh, p2sh, a p2sh_32 payload, or a PLM witness program
+        QByteArray _hash; // this holds either a p2pkh or p2sh payload, or a witness program
         Kind _kind = Kind::Invalid;
-        Coin _coin = Coin::Unknown; // Unknown means BCH/BTC rules (the original behavior); PLM selects PLM rules
         bool autosetKind();
-
-        QString toString(bool legacy, std::optional<Byte> verByteOverride) const;
 
 #ifdef ENABLE_TESTS
     public:
