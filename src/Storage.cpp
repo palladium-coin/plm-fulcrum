@@ -96,7 +96,6 @@ namespace {
     struct Meta {
         static constexpr uint32_t kCurrentVersion = 0x4u;
         static constexpr uint32_t kMinSupportedVersion = 0x1u;
-        static constexpr uint32_t kMinBCHUpgrade9Version = 0x2u;
         static constexpr uint32_t kMinHasExtraPlatformInfoVersion = 0x3u;
 
         static constexpr uint32_t kMagic = 0xf33db33fu;
@@ -2167,10 +2166,7 @@ void Storage::checkUpgradeDBVersion()
 
     // Original Fulcrum DB version before 1.9.0 was v1, then there was v2 which added CashToken data for BCH.
     // Now we are on v3 as of 1.11.0+, whose only difference vs v2 is additional platform info saved to `Meta`.
-    //
-    // Going from v1 on BTC -> v2+ is ok without caveats. For BCH, we must warn the user if their DB is v1
-    // and it's after the upgrade9 activation time, because then the DB will be missing token data and may have
-    // token-containing UTXOs indexed to the wrong script hash.
+    // Going from an older version to the current one is ok without caveats.
     Log() << "DB version: v" << p->meta.version;
     if (p->meta.isMinimumExtraPlatformInfoVersion()) {
         Debug() << "DB last written-to by: " << p->meta.appName << " " << p->meta.appVersion
@@ -2179,31 +2175,6 @@ void Storage::checkUpgradeDBVersion()
                 << ", bits: " << p->meta.platformBits;
     }
     if (p->meta.version < Meta::kCurrentVersion) {
-        if (BTC::coinFromName(p->meta.coin) == BTC::Coin::BCH && p->meta.version < Meta::kMinBCHUpgrade9Version) {
-            // Get the latest header to detect if we are after the activation time
-            const Header hdr = headerVerifier().first.lastHeaderProcessed().second;
-            if (hdr.size() == BTC::GetBlockHeaderSize()) {
-                const auto bhdr = [&hdr] {
-                    try {
-                        return BTC::Deserialize<bitcoin::CBlockHeader>(hdr, 0, false, true);
-                    } catch (const std::ios_base::failure &e) {
-                        throw InternalError(QString("checkUpgradeDBVersion: Failed to deserialize the latest block"
-                                                    " header: %1").arg(e.what()));
-                    }
-                }();
-                const int64_t upgrade9ActivationTime = BTC::NetFromName(p->meta.chain) == BTC::Net::ChipNet
-                                                       ? 1668513600  // ChipNet: November 15, 2022 12:00:00 UTC
-                                                       : 1684152000; // MainNet, etc: May 15, 2023 12:00:00 UTC
-                if (bhdr.GetBlockTime() >= upgrade9ActivationTime) {
-                    // Uh-oh. They have a synched db that is v1, but the upgrade has already activated. Complain
-                    // and abort out, insisting that the user re-synch the DB.
-                    throw DatabaseError("This datadir was synched using an older version of " APPNAME " which lacked"
-                                        " full CashToken support, however Upgrade9 has already activated for this"
-                                        " chain.\n\nPlease delete the datadir and resynch to bitcoind.\n");
-                }
-            }
-        }
-
         Log() << "DB version is older but compatible, updating version to v" << Meta::kCurrentVersion << " ...";
         p->meta.version = Meta::kCurrentVersion;
     }

@@ -46,23 +46,19 @@ using BitcoinDZmqNotifications = QMultiHash<QString, QString>; ///< "topic"-> "e
 /// This basically all comes from bitcoind RPC `getnetworkinfo`
 struct BitcoinDInfo {
     Version version {0,0,0}; ///> major, minor, revision e.g. {0, 20, 6} for v0.20.6
-    QString subversion; ///< subversion string from daemon e.g.: /Bitcoin Cash Node bla bla;EB32 ..../
+    QString subversion; ///< subversion string from daemon e.g.: /Palladium:2.1.0/
     double relayFee = 0.0; ///< from 'relayfee' in the getnetworkinfo response; minimum fee/kb to relay a tx, usually: 0.00001000
     QString warnings = ""; ///< from 'warnings' in the getnetworkinfo response (usually is empty string, but may not always be)
     struct RpcSupportInfo {
-        bool isZeroArgEstimateFee = false; ///< true if remote bitcoind expects 0 argument "estimatefee" RPC.
         bool hasEstimateSmartFee = false; ///< true if remote bitcoind supports estimatesmartfee. (Bitcoin Core >= 0.15.0)
         bool isTwoArgEstimateSmartFee = false; ///< if true, estimatesmartfee has an optional second parameter "mode" (Bitcoin Core >= 0.16.0)
-        bool lacksGetZmqNotifications = false; ///< true if bchd or BU < 1.9.1.0, or if we got an RPC error the last time we queried
+        bool lacksGetZmqNotifications = false; ///< true if we got an RPC error the last time we queried
         bool sendRawTransactionRequiresMaxBurnAmount = false; ///< true if the `sendrawtransaction` RPC requires 2 extra args. Bitcoin Core >= 25.0.0 only.
         bool hasSubmitPackageRPC = false; ///< true if the `submitpackage` RPC method exists and is what we expect. Bitcoin Core >= 28.0.0 only.
     };
     RpcSupportInfo rpcSupportInfo;
     bool isCore = false; ///< true if we are actually connected to /Satoshi.. node (Bitcoin Core)
     bool isPLM = false; ///< true if we are connected to a /Palladium:.. node (Palladium, PLM)
-    bool isBU = false; ///< true if subversion string starts with "/BCH Unlimited:"
-    bool isFlowee = false; ///< true if subversion string starts with "/Flowee"
-    bool isBchd = false; ///< true if remote bitcoind subversion is: /bchd:...
 
     /// The below field is populated from bitcoind RPC `getzmqnotifications` (if supported and if we are compiled to
     /// use libzmq).  Note that entires in here are auto-transformed by BitcoinDMgr such that:
@@ -212,9 +208,6 @@ private:
     /// emits detectedFastPingMethod(true), otherwise emits detectedFastPingMethod(false) if it lacks the RPC.
     void probeBitcoinDHasUptimeRPC();
 
-    /// Calls resetPingTimer on each BitcionD -- used by quirk fixup code since bchd vs bitcoind require different
-    /// pingtimes
-    void resetPingTimers(int timeout_ms);
 
     // -- Request context table and request handler function --
     QHash<RPC::Message::Id, std::weak_ptr<BitcoinDMgrHelper::ReqCtxObj>> reqContextTable; // this should only be accessed from this thread

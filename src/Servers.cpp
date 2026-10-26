@@ -1377,9 +1377,7 @@ void Server::rpc_blockchain_estimatefee(Client *c, const RPC::BatchId batchId, c
 
     QVariantList params;
     const auto rsi = bitcoindmgr->getRpcSupportInfo();
-    // Flowee, BU, early ABC, bchd have a 1-arg estimate fee, newer ABC & BCHN -> 0 arg
-    if (!rsi.isZeroArgEstimateFee)
-        params.push_back(unsigned(n));
+    params.push_back(unsigned(n));
 
     if (rsi.hasEstimateSmartFee) {
         // Bitcoin Core removed the "estimatefee" RPC method entirely in version 0.17.0, in favor of "estimatesmartfee"
