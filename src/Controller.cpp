@@ -586,7 +586,7 @@ void DownloadBlocksTask::do_get(unsigned int bnum)
 
                         if (TRACE) Trace() << "block " << bnum << " size: " << rawblock.size() << " nTx: " << numTxns;
 
-                        rawblock.clear(); // free memory right away (needed for ScaleNet huge blocks)
+                        rawblock.clear(); // free memory right away
 
                         // . <--- NOTE: rawblock not to be used beyond this point (it is now empty)
 
@@ -744,11 +744,6 @@ unsigned Controller::downloadTaskRecommendedThrottleTimeMsec(unsigned bnum) cons
                 maxBackLog = 250;
             else if (bnum > 550'000 && !isSegWitCoin()) // beyond this height we may start to see 32MB blocks in the future
                 maxBackLog = 100;
-        } else if (sm->net == BTC::ScaleNet) {
-            if (bnum > 10'000)
-                maxBackLog = 10; // on ScaleNet, after block 10,000 -- we may start to hit big blocks.
-        } else if (sm->net == BTC::TestNet4 || sm->net == BTC::ChipNet) {
-            // nothing, use 1000 always, testnet4 & chipnet have 2MB blocks.
         } else {
             // testnet
             if (bnum > 1'300'000) // beyond this height 32MB blocks may be common, esp. in the future
@@ -1500,7 +1495,7 @@ auto Controller::debug(const StatsParams &p) const -> Stats // from StatsMixin
         ret["unspent_debug"] = l;
     }
     if (p.contains("utxo_stats")) {
-        // Note: This is slow and times-out on mainnet or even testnet3. Was mainly used for testing on chipnet.
+        // Note: This is slow and times-out on mainnet or even testnet3.
         const auto stats = storage->calcUTXOSetStats([](size_t ctr){ DebugM("utxo_stats: progress counter = ", ctr); });
         QVariantMap m;
         m["block_height"] = qlonglong(stats.block_height);

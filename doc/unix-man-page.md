@@ -110,7 +110,7 @@ Once the server finishes synching it will behave like an ElectronX/ElectrumX ser
 :   If specified, disable the fast simdjson backend for JSON parsing. This parser is over 2x faster than the original parser, and is enabled by default as of Fulcrum version 1.3.0.
 
 --bd-timeout
-:   Corresponds to the configuration file variable "bitcoind_timeout". The number of seconds to wait for unanswered bitcoind requests before we consider them as having timed-out (default: 30). You may wish to set this higher than the default if using BCH ScaleNet, or if you see "bitcoind request timed out" appear in the log.
+:   Corresponds to the configuration file variable "bitcoind_timeout". The number of seconds to wait for unanswered bitcoind requests before we consider them as having timed-out (default: 30). You may wish to set this higher than the default if you see "bitcoind request timed out" appear in the log.
 
 --bd-clients
 :   Corresponds to the configuration file variable "bitcoind_clients". The number of simultaneous bitcoin RPC clients that we spawn to connect to bitcoind (default: 3). If you raise this value from the default, be sure to also specify the option `rpcthreads=` to bitcoind so that there are enough threads to accommodate the clients we spawn, otherwise you may get errors from bitcoind.

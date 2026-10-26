@@ -280,7 +280,7 @@ namespace RPC {
         ///
         /// Note the move semantics here. We take ownership of the passed-in QByteArray and clear it immediately
         /// once JSON processing is done, but before callbacks are dispatched -- this is to reduce peak memory usage
-        /// if processing a huge JSON payload containing a big block (for networks like ScaleNet).
+        /// if processing a huge JSON payload containing a big block.
         void processJson(QByteArray &&);
 
         struct ProcessObjectResult {

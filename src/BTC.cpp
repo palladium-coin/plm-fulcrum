@@ -159,23 +159,15 @@ namespace BTC
             // Note that bchd has altername names for these (see nameNetMap below).
             { MainNet, "main"},
             { TestNet, "test"},
-            { TestNet4, "test4"},
-            { ScaleNet, "scale"},
             { RegTestNet, "regtest"},
-            { ChipNet, "chip"},
         }};
         const QMap<QString, Net> nameNetMap = {{
             {"main",     MainNet},     // BCHN, BU, ABC, Core, LitecoinCore
             {"mainnet",  MainNet},     // bchd
             {"test",     TestNet},     // BCHN, BU, ABC, Core, LitecoinCore
-            {"test4",    TestNet4},    // BCHN, BU
-            {"scale",    ScaleNet},    // BCHN, BU
             {"testnet3", TestNet},     // bchd
-            {"testnet4", TestNet4},    // Core, possible future bchd
             {"regtest",  RegTestNet},  // BCHN, BU, ABC, bchd, Core, LitecoinCore
             {"signet",   TestNet},     // Core only
-            {"chip",     ChipNet},     // BCH only; BCHN
-            {"chipnet",  ChipNet},     // BCH only; BU
         }};
         const QString invalidNetName = "invalid";
     };

@@ -460,7 +460,7 @@ namespace RPC {
             const Json::ParseOption parseOpt = batchPermitted ? Json::ParseOption::AcceptAnyValue
                                                               : Json::ParseOption::RequireObject;
             QVariant var = Json::parseUtf8(json, parseOpt, backend); // may throw
-            json.clear(); // release memory right away (needed for ScaleNet)
+            json.clear(); // release memory right away
 
             if (var.canConvert<QVariantMap>()) {
                 // handle immediate request

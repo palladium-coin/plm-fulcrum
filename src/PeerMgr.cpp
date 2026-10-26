@@ -88,19 +88,12 @@ void PeerMgr::startup()
         throw InternalError("PeerMgr cannot be constructed without a valid \"Coin\" and/or \"Chain\" in the database!");
     const auto lcaseCoin = coinStr.trimmed().toLower();
     const auto pathPrefix = QString(":resources/%1/").arg(lcaseCoin);
-    const QVector<BTC::Net> knownNets{{BTC::Net::TestNet, BTC::Net::TestNet4, BTC::Net::ScaleNet, BTC::Net::MainNet,
-                                       BTC::Net::ChipNet}};
+    const QVector<BTC::Net> knownNets{{BTC::Net::TestNet, BTC::Net::MainNet}};
     if (const auto net = BTC::NetFromName(chain); !knownNets.contains(net))
         // can only do peering with testnet or mainnet after they have been defined (no regtest)
         throw InternalError(QString("PeerMgr cannot be started for the given chain \"%1\"").arg(chain));
     else if (net == BTC::Net::TestNet)
         parseServersDotJson(pathPrefix + "servers_testnet.json");
-    else if (net == BTC::Net::TestNet4)
-        parseServersDotJson(pathPrefix + "servers_testnet4.json"); // BCH & BTC only
-    else if (net == BTC::Net::ScaleNet)
-        parseServersDotJson(pathPrefix + "servers_scalenet.json"); // BCH only -- will implicitly throw if somehow the coin is BTC (should never happen)
-    else if (net == BTC::Net::ChipNet)
-        parseServersDotJson(pathPrefix + "servers_chipnet.json"); // BCH only -- will implicitly throw if somehow the coin is BTC (should never happen)
     else
         parseServersDotJson(pathPrefix + "servers.json");
 

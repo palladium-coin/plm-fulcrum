@@ -555,7 +555,7 @@ void App::parseArgs()
         "bd-timeout",
         QString("Corresponds to the configuration file variable \"bitcoind_timeout\". The number of seconds to wait for"
                 " unanswered bitcoind requests before we consider them as having timed-out (default: %1). You may wish"
-                " to set this higher than the default if using BCH ScaleNet, or if you see \"bitcoind request timed"
+                " to set this higher than the default if you see \"bitcoind request timed"
                 " out\" appear in the log.\n").arg(double(Options::defaultBdTimeout)/1e3),
         QString("seconds"),
     },
