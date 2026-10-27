@@ -17,7 +17,7 @@
 // <https://www.gnu.org/licenses/>.
 //
 
-#include "BitcoinD.h"
+#include "PalladiumD.h"
 #include "Util.h"
 #include "ZmqSubNotifier.h"
 
@@ -44,37 +44,37 @@ namespace {
     const QVariantList kPingParamsFast = {}, kPingParamsSlow = {{"help"}};
 }
 
-BitcoinDMgr::BitcoinDMgr(unsigned nClients, const BitcoinD_RPCInfo &rinf)
+PalladiumDMgr::PalladiumDMgr(unsigned nClients, const PalladiumD_RPCInfo &rinf)
     : Mgr(nullptr), IdMixin(newId()), nClients(nClients), rpcInfo(rinf)
 {
-    setObjectName("BitcoinDMgr");
+    setObjectName("PalladiumDMgr");
     _thread.setObjectName(objectName());
     if (!nClients)
         throw BadArgs("The number of palladiumd clients cannot be 0!");
 }
 
-BitcoinDMgr::~BitcoinDMgr() {  cleanup(); }
+PalladiumDMgr::~PalladiumDMgr() {  cleanup(); }
 
-void BitcoinDMgr::startup() {
+void PalladiumDMgr::startup() {
     Log() << objectName() << ": starting " << nClients << " " << Util::Pluralize("RPC client", nClients) << " ...";
 
     // ensure the cached results table is cleared on reconnect
-    conns += connect(this, &BitcoinDMgr::gotFirstGoodConnection, this, &BitcoinDMgr::clearCachedResultsTable);
-    // As soon as a good BitcoinD is up, try and grab the network info (version, subversion, etc).  This must
+    conns += connect(this, &PalladiumDMgr::gotFirstGoodConnection, this, &PalladiumDMgr::clearCachedResultsTable);
+    // As soon as a good PalladiumD is up, try and grab the network info (version, subversion, etc).  This must
     // happen early because the values in this info object determine which workarounds we may or may not apply to
     // RPC args.
-    conns += connect(this, &BitcoinDMgr::gotFirstGoodConnection, this, &BitcoinDMgr::refreshBitcoinDNetworkInfo);
+    conns += connect(this, &PalladiumDMgr::gotFirstGoodConnection, this, &PalladiumDMgr::refreshPalladiumDNetworkInfo);
 
     clients.resize(nClients);
     for (auto & client : clients) {
         // initial resolvedAddress may be invalid if user specified a hostname, in which case we will resolve it and
         // tell bitcoind's to update themselves and reconnect
-        client = std::make_unique<BitcoinD>(rpcInfo);
+        client = std::make_unique<PalladiumD>(rpcInfo);
 
         // connect client to us -- TODO: figure out workflow: how requests for work and results will get dispatched
-        connect(client.get(), &BitcoinD::gotMessage, this, &BitcoinDMgr::on_Message);
-        connect(client.get(), &BitcoinD::gotErrorMessage, this, &BitcoinDMgr::on_ErrorMessage);
-        connect(client.get(), &BitcoinD::authenticated, this, [this](BitcoinD *b){
+        connect(client.get(), &PalladiumD::gotMessage, this, &PalladiumDMgr::on_Message);
+        connect(client.get(), &PalladiumD::gotErrorMessage, this, &PalladiumDMgr::on_ErrorMessage);
+        connect(client.get(), &PalladiumD::authenticated, this, [this](PalladiumD *b){
             // guard against stale/old signal
             if (!b->isGood()) {
                 DebugM("got authenticated for id:", b->id, " but isGood() is false!");
@@ -85,30 +85,30 @@ void BitcoinDMgr::startup() {
             if (wasEmpty)
                 emit gotFirstGoodConnection(b->id);
         });
-        connect(client.get(), &BitcoinD::lostConnection, this, [this](AbstractConnection *c){
-            // tell all extant requests being serviced by this BitcoinD about this failure
-            notifyFailForRequestsMatchingBitcoinD(c, "palladiumd connection lost");
+        connect(client.get(), &PalladiumD::lostConnection, this, [this](AbstractConnection *c){
+            // tell all extant requests being serviced by this PalladiumD about this failure
+            notifyFailForRequestsMatchingPalladiumD(c, "palladiumd connection lost");
         });
         connect(client.get(), &QObject::destroyed, this, [this](QObject *o){
             // just in case there are any extant requests up when this has been deleted (unlikely)
-            notifyFailForRequestsMatchingBitcoinD(o, "palladiumd client deleted");
+            notifyFailForRequestsMatchingPalladiumD(o, "palladiumd client deleted");
         });
-        connect(client.get(), &BitcoinD::lostConnection, this, [this](AbstractConnection *c){
+        connect(client.get(), &PalladiumD::lostConnection, this, [this](AbstractConnection *c){
             // guard against stale/old signal
             if (c->isGood()) {
                 DebugM("got lostConnection for id:", c->id, " but isGood() is true!");
                 return; // false/stale signal
             }
             goodSet.erase(c->id);
-            auto constexpr chkTimer = "checkNoMoreBitcoinDs";
+            auto constexpr chkTimer = "checkNoMorePalladiumDs";
             // we throttle the spamming of the allConnectionsLost signal via this mechanism
             callOnTimerSoonNoRepeat(miniTimeout, chkTimer, [this]{
                 if (goodSet.empty())
                     emit allConnectionsLost();
             }, true);
         });
-        connect(this, &BitcoinDMgr::detectedFastPingMethod, client.get(), &BitcoinD::on_detectedFastPingMethod);
-        connect(this, &BitcoinDMgr::inBlockDownload, client.get(), &BitcoinD::on_inBlockDownload);
+        connect(this, &PalladiumDMgr::detectedFastPingMethod, client.get(), &PalladiumD::on_detectedFastPingMethod);
+        connect(this, &PalladiumDMgr::inBlockDownload, client.get(), &PalladiumD::on_inBlockDownload);
 
         client->start();
     }
@@ -118,14 +118,14 @@ void BitcoinDMgr::startup() {
     Log() << objectName() << ": started ok";
 }
 
-void BitcoinDMgr::on_started()
+void PalladiumDMgr::on_started()
 {
     ThreadObjectMixin::on_started();
     callOnTimerSoon(kRequestTimerPolltimeMS, kRequestTimeoutTimer, [this]{ requestTimeoutChecker(); return true; });
     callOnTimerSoon(kExpireOldCachedResultsPolltimeMS, kExpireOldCachedResultsTimer, [this] { expireOldCachedResults(); return true; });
 }
 
-void BitcoinDMgr::on_finished()
+void PalladiumDMgr::on_finished()
 {
     // Note: There normally aren't any requests in this table when we get here since Controller and Servers are the only
     // objects that issue requests to us, and they are all stopped and deleted before we are stopped.  However, in the
@@ -146,16 +146,16 @@ void BitcoinDMgr::on_finished()
     ThreadObjectMixin::on_finished();
 }
 
-void BitcoinDMgr::cleanup() {
+void PalladiumDMgr::cleanup() {
     stop();
 
     clients.clear(); /// for each client, implicitly calls client->stop() in client d'tor
     goodSet.clear();
 
-    Debug() << "BitcoinDMgr cleaned up";
+    Debug() << "PalladiumDMgr cleaned up";
 }
 
-auto BitcoinDMgr::stats() const -> Stats
+auto PalladiumDMgr::stats() const -> Stats
 {
     QVariantList l;
     const int timeout = kDefaultTimeout/int(qMax(nClients, 1u));
@@ -167,20 +167,20 @@ auto BitcoinDMgr::stats() const -> Stats
     }
     QVariantMap m;
     m["rpc clients"] = l;
-    m["extant request contexts"] = BitcoinDMgrHelper::ReqCtxObj::extant.load();
+    m["extant request contexts"] = PalladiumDMgrHelper::ReqCtxObj::extant.load();
     m["request context table size"] = reqContextTable.size();
     m["request zombie count"] = requestZombieCtr;
     m["request timeout count"] = requestTimeoutCtr;
     m["activeTimers"] = activeTimerMapForStats();
 
     // "bitcoind info"
-    m["bitcoind info"] = getBitcoinDInfo().toVariantMap(); // takes lock, makes a copy, releases lock;
+    m["bitcoind info"] = getPalladiumDInfo().toVariantMap(); // takes lock, makes a copy, releases lock;
 
     return m;
 }
 
 
-BitcoinD *BitcoinDMgr::getBitcoinD()
+PalladiumD *PalladiumDMgr::getPalladiumD()
 {
     if (goodSet.empty())
         return nullptr;
@@ -197,41 +197,41 @@ BitcoinD *BitcoinDMgr::getBitcoinD()
 }
 
 namespace {
-    struct BitcoinDVersionParseResult {
+    struct PalladiumDVersionParseResult {
         bool isPLM{};
         Version version;
 
-        constexpr BitcoinDVersionParseResult() noexcept = default;
-        BitcoinDVersionParseResult(unsigned val, const QString &subversion);
+        constexpr PalladiumDVersionParseResult() noexcept = default;
+        PalladiumDVersionParseResult(unsigned val, const QString &subversion);
     };
 
-    BitcoinDVersionParseResult::BitcoinDVersionParseResult(unsigned val, const QString &subversion) {
+    PalladiumDVersionParseResult::PalladiumDVersionParseResult(unsigned val, const QString &subversion) {
         // e.g. 0.20.6 comes in like this from bitcoind (as an unsigned int): 200600 (millions, 10-thousands, hundreds).
         isPLM = subversion.startsWith("/Palladium:");
         // "version" is reliable and always the same format
-        version = Version::BitcoinDCompact(val);
+        version = Version::PalladiumDCompact(val);
     }
 
 }
 
-void BitcoinDMgr::refreshBitcoinDNetworkInfo()
+void PalladiumDMgr::refreshPalladiumDNetworkInfo()
 {
     submitRequest(this, newId(), "getnetworkinfo", QVariantList{},
         // success
         [this](const RPC::Message & reply) {
-            BitcoinDVersionParseResult res;
+            PalladiumDVersionParseResult res;
             {
                 const QVariantMap networkInfo = reply.result().toMap();
                 // --- EXCLUSIVE-LOCKED SCOPE below this line ---
                 std::unique_lock g(bitcoinDInfoLock);
                 bitcoinDInfo.subversion = networkInfo.value("subversion", "").toString();
                 // try and determine version major/minor/revision, and write result to 'res'
-                res = [](const auto &subversion, const auto &networkInfo) -> BitcoinDVersionParseResult {
+                res = [](const auto &subversion, const auto &networkInfo) -> PalladiumDVersionParseResult {
                     bool ok = false;
                     const auto val = networkInfo.value("version", 0).toUInt(&ok);
 
                     if (ok) {
-                        const BitcoinDVersionParseResult res(val, subversion);
+                        const PalladiumDVersionParseResult res(val, subversion);
                         DebugM("Refreshed version info from palladiumd, version: ", res.version.toString(true),
                                ", subversion: ", subversion);
                         return res;
@@ -240,14 +240,14 @@ void BitcoinDMgr::refreshBitcoinDNetworkInfo()
                         return {};
                     }
                 }(bitcoinDInfo.subversion, networkInfo);
-                // assign to shared object now from stack object BitcoinDVersionParseResult
+                // assign to shared object now from stack object PalladiumDVersionParseResult
                 std::tie(bitcoinDInfo.isPLM, bitcoinDInfo.version) = std::tie(res.isPLM, res.version);
                 bitcoinDInfo.relayFee = networkInfo.value("relayfee", 0.0).toDouble();
                 bitcoinDInfo.warnings = networkInfo.value("warnings", "").toString();
                 auto & rsi = bitcoinDInfo.rpcSupportInfo;
                 rsi.hasEstimateSmartFee = res.isPLM && bitcoinDInfo.version >= Version{0, 15, 0};
                 rsi.isTwoArgEstimateSmartFee = res.isPLM && bitcoinDInfo.version >= Version{0, 16, 0};
-                rsi.lacksGetZmqNotifications = false; // until proven otherwise by an RPC error (see refreshBitcoinDZmqNotifications)
+                rsi.lacksGetZmqNotifications = false; // until proven otherwise by an RPC error (see refreshPalladiumDZmqNotifications)
             } // end lock scope
             // be sure to announce whether remote bitcoind is bitcoin core (this determines whether we use segwit or not)
             // PLM is the only supported coin; refuse to run against any other node rather than guessing (e.g. BCH)
@@ -257,13 +257,13 @@ void BitcoinDMgr::refreshBitcoinDNetworkInfo()
             const BTC::Coin coin = BTC::Coin::PLM; // segwit
             emit coinDetected(coin);
             // next up, do this query
-            refreshBitcoinDGenesisHash();
+            refreshPalladiumDGenesisHash();
             // and also this one, if we were compiled with libzmq and remote bitcoind may have `getzmqnotifications`
             if (ZmqSubNotifier::isAvailable()) {
-                refreshBitcoinDZmqNotifications(); // query since we think bitcoind maybe has the RPC method
+                refreshPalladiumDZmqNotifications(); // query since we think bitcoind maybe has the RPC method
             }
             // determine if we can use the "fast" ping method, "uptime", or whether we fall back to "help help"
-            probeBitcoinDHasUptimeRPC();
+            probePalladiumDHasUptimeRPC();
         },
         // error
         [](const RPC::Message &msg) {
@@ -274,7 +274,7 @@ void BitcoinDMgr::refreshBitcoinDNetworkInfo()
     );
 }
 
-void BitcoinDMgr::refreshBitcoinDGenesisHash()
+void PalladiumDMgr::refreshPalladiumDGenesisHash()
 {
     submitRequest(this, newId(), "getblockhash", {0},
         // success
@@ -321,12 +321,12 @@ void BitcoinDMgr::refreshBitcoinDGenesisHash()
 }
 
 // this is only ever called if we are compiled with zmq support
-void BitcoinDMgr::refreshBitcoinDZmqNotifications()
+void PalladiumDMgr::refreshPalladiumDZmqNotifications()
 {
     submitRequest(this, newId(), "getzmqnotifications", {},
         // success
         [this](const RPC::Message & reply) {
-            BitcoinDZmqNotifications zmqs;
+            PalladiumDZmqNotifications zmqs;
             bool badFormat = !reply.result().canConvert<QVariantList>();
             for (const auto &var : reply.result().toList()) {
                 const auto obj = var.toMap();
@@ -415,7 +415,7 @@ void BitcoinDMgr::refreshBitcoinDZmqNotifications()
     );
 }
 
-void BitcoinDMgr::probeBitcoinDHasUptimeRPC()
+void PalladiumDMgr::probePalladiumDHasUptimeRPC()
 {
     submitRequest(this, newId(), "uptime", {},
         // success
@@ -436,33 +436,33 @@ void BitcoinDMgr::probeBitcoinDHasUptimeRPC()
     );
 }
 
-BitcoinDInfo BitcoinDMgr::getBitcoinDInfo() const
+PalladiumDInfo PalladiumDMgr::getPalladiumDInfo() const
 {
     std::shared_lock g(bitcoinDInfoLock);
     return bitcoinDInfo;
 }
 
-void BitcoinDMgr::requestBitcoinDInfoRefresh() { refreshBitcoinDNetworkInfo(); }
+void PalladiumDMgr::requestPalladiumDInfoRefresh() { refreshPalladiumDNetworkInfo(); }
 
-Version BitcoinDMgr::getBitcoinDVersion() const
+Version PalladiumDMgr::getPalladiumDVersion() const
 {
     std::shared_lock g(bitcoinDInfoLock);
     return bitcoinDInfo.version;
 }
 
-BlockHash BitcoinDMgr::getBitcoinDGenesisHash() const
+BlockHash PalladiumDMgr::getPalladiumDGenesisHash() const
 {
     std::shared_lock g(bitcoinDGenesisHashLock);
     return bitcoinDGenesisHash;
 }
 
-BitcoinDZmqNotifications BitcoinDMgr::getZmqNotifications() const
+PalladiumDZmqNotifications PalladiumDMgr::getZmqNotifications() const
 {
     std::shared_lock g(bitcoinDInfoLock);
     return bitcoinDInfo.zmqNotifications;
 }
 
-void BitcoinDMgr::setZmqNotifications(const BitcoinDZmqNotifications &zmqs)
+void PalladiumDMgr::setZmqNotifications(const PalladiumDZmqNotifications &zmqs)
 {
     bool changed = false;
     {
@@ -476,13 +476,13 @@ void BitcoinDMgr::setZmqNotifications(const BitcoinDZmqNotifications &zmqs)
     if (changed) emit zmqNotificationsChanged(zmqs);
 }
 
-BitcoinDInfo::RpcSupportInfo BitcoinDMgr::getRpcSupportInfo() const
+PalladiumDInfo::RpcSupportInfo PalladiumDMgr::getRpcSupportInfo() const
 {
     std::shared_lock g(bitcoinDInfoLock);
     return bitcoinDInfo.rpcSupportInfo;
 }
 
-auto BitcoinDMgr::getCachedResult(const QString &method) const -> std::optional<CachedResult>
+auto PalladiumDMgr::getCachedResult(const QString &method) const -> std::optional<CachedResult>
 {
     std::shared_lock g(cachedResultsLock);
     if (auto it = cachedResultsTable.find(method); it != cachedResultsTable.end())
@@ -490,7 +490,7 @@ auto BitcoinDMgr::getCachedResult(const QString &method) const -> std::optional<
     return std::nullopt;
 }
 
-void BitcoinDMgr::updateCachedResult(const QString &method, qint64 maxAge, QVariant var)
+void PalladiumDMgr::updateCachedResult(const QString &method, qint64 maxAge, QVariant var)
 {
     const auto now = Util::getTime();
     std::unique_lock g(cachedResultsLock);
@@ -500,7 +500,7 @@ void BitcoinDMgr::updateCachedResult(const QString &method, qint64 maxAge, QVari
     r.timeStamp = now;
 }
 
-void BitcoinDMgr::clearCachedResultsTable()
+void PalladiumDMgr::clearCachedResultsTable()
 {
     decltype(cachedResultsTable)::size_type size{};
     {
@@ -512,7 +512,7 @@ void BitcoinDMgr::clearCachedResultsTable()
     DebugM("cachedResultsTable: Cleared ", size, Util::Pluralize(" entry", size));
 }
 
-void BitcoinDMgr::expireOldCachedResults()
+void PalladiumDMgr::expireOldCachedResults()
 {
     decltype(cachedResultsTable)::size_type origSize{}, deletions{};
     {
@@ -533,11 +533,11 @@ void BitcoinDMgr::expireOldCachedResults()
 
 /// This is safe to call from any thread. Internally it dispatches messages to this obejct's thread.
 /// Does not throw. Results/Error/Fail functions are called in the context of the `sender` thread.
-void BitcoinDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, const QString & method, const QVariantList & params,
+void PalladiumDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, const QString & method, const QVariantList & params,
                                 const ResultsF & resf, const ErrorF & errf, const FailF & failf, int timeout,
                                 std::optional<int> cachedResultOkIfNotOlderThan)
 {
-    using namespace BitcoinDMgrHelper;
+    using namespace PalladiumDMgrHelper;
     constexpr bool debugDeletes = false; // set this to true to print debug messages tracking all the below object deletions (tested: no leaks!)
 
     // handle caching of responses (such as getmempoolinfo)
@@ -545,7 +545,7 @@ void BitcoinDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, co
     if (cachedResultOkIfNotOlderThan.has_value()) {
         if (!params.empty()) [[unlikely]] {
             // Detect calling code mis-use of this function and print an error message.
-            Error() << "INTERNAL ERROR: Caller to BitcoinDMgr::" << __func__ << " specified a value for"
+            Error() << "INTERNAL ERROR: Caller to PalladiumDMgr::" << __func__ << " specified a value for"
                     << "`cachedResultOkIfNotOlderThan`, but also specified a non-empty params list. This usage is not"
                     << " supported; will proceed without caching. FIXME!";
         } else {
@@ -619,19 +619,19 @@ void BitcoinDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, co
 
     // schedule this ASAP
     Util::AsyncOnObject(this, [this, context, rid, method, params] {
-        auto bd = getBitcoinD();
+        auto bd = getPalladiumD();
         if (!bd) [[unlikely]] {
             emit context->fail(rid, "Unable to find a good palladiumd connection");
             return;
         }
-        context->bd = bd; // record which bitcoind is servicing this request for notifyFailForRequestsMatchingBitcoinD()
+        context->bd = bd; // record which bitcoind is servicing this request for notifyFailForRequestsMatchingPalladiumD()
 
-        // Note: there is a small chance of a race condition here because the `bd` that getBitcoinD() returns runs in
+        // Note: there is a small chance of a race condition here because the `bd` that getPalladiumD() returns runs in
         // its own thread, and it may have "gone bad" from underneath our feet as this code executes by losing its
         // connection; we must defensively handle that situation just in case the "lostConnection" signal is emitted
         // when we are here.  In that very unlikely case, if a request has not completed in 15 seconds, eventually
         // requestTimeoutChecker() will tell the sender that the request timed out.  Also, it is theoretically possible
-        // for BitcoinD to just never respond, so we need to be able to handle that situation as well with a guaranteed
+        // for PalladiumD to just never respond, so we need to be able to handle that situation as well with a guaranteed
         // `fail` signal delivery "some time later".
 
         // put context in table -- this table is consulted in handleMessageCommon to dispatch
@@ -664,9 +664,9 @@ void BitcoinDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, co
            Notes:
              - The "Results" and "Error" responses are handled in on_Message and on_ErrorMessage by looking up the
                proper context object in the hash table directly.
-             - BitcoinD losing connection (lostConnection signal) is handled by notifyFailForRequestsMatchingBitcoinD().
-             - BitcoinD being deleted (destroyed signal) is handled by notifyFailForRequestsMatchingBitcoinD().
-             - If BitcoinD goes out to lunch for >15 seconds the periodic requestTimeoutChecker() will eventually
+             - PalladiumD losing connection (lostConnection signal) is handled by notifyFailForRequestsMatchingPalladiumD().
+             - PalladiumD being deleted (destroyed signal) is handled by notifyFailForRequestsMatchingPalladiumD().
+             - If PalladiumD goes out to lunch for >15 seconds the periodic requestTimeoutChecker() will eventually
                notify the sender of a timeout.
         */
 
@@ -676,7 +676,7 @@ void BitcoinDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, co
     // .. aand.. return right away
 }
 
-void BitcoinDMgr::requestTimeoutChecker()
+void PalladiumDMgr::requestTimeoutChecker()
 {
     const auto now = Util::getTime();
     for (auto it = reqContextTable.begin(); it != reqContextTable.end(); ++it) {
@@ -699,7 +699,7 @@ void BitcoinDMgr::requestTimeoutChecker()
     }
 }
 
-void BitcoinDMgr::notifyFailForRequestsMatchingBitcoinD(const QObject *bd, const QString &errorMessage)
+void PalladiumDMgr::notifyFailForRequestsMatchingPalladiumD(const QObject *bd, const QString &errorMessage)
 {
     for (auto it = reqContextTable.begin(); it != reqContextTable.end(); ++it)
         if (auto context = it.value().lock(); context && context->bd == bd)
@@ -707,17 +707,17 @@ void BitcoinDMgr::notifyFailForRequestsMatchingBitcoinD(const QObject *bd, const
 }
 
 namespace {
-    using ReqCtxResultsOrErrorFunc = decltype(&BitcoinDMgrHelper::ReqCtxObj::results);
+    using ReqCtxResultsOrErrorFunc = decltype(&PalladiumDMgrHelper::ReqCtxObj::results);
 }
 
 template <>
-void BitcoinDMgr::handleMessageCommon(const RPC::Message &msg, ReqCtxResultsOrErrorFunc resultsOrErrorFunc)
+void PalladiumDMgr::handleMessageCommon(const RPC::Message &msg, ReqCtxResultsOrErrorFunc resultsOrErrorFunc)
 {
     // find message context in map
     auto context = reqContextTable.take(msg.id).lock();
     if (!context) {
         if (msg.method == kPingMethodFast || msg.method == kPingMethodSlow) { // <--- pings don't go through our req layer so they always come through without a table entry here
-            if constexpr (BitcoinD::DEBUG_PINGS)
+            if constexpr (PalladiumD::DEBUG_PINGS)
                 Debug(Log::Magenta) << __func__ << ": Got ping reply (sender: " << (sender() ? sender()->objectName() : "") << ", method: \"" << msg.method << "\")";
         } else {
             // this can happen in rare cases if the sender object was deleted before bitcoind responded.
@@ -732,15 +732,15 @@ void BitcoinDMgr::handleMessageCommon(const RPC::Message &msg, ReqCtxResultsOrEr
     emit (context.get()->*resultsOrErrorFunc)(msg);
 }
 
-void BitcoinDMgr::on_Message(quint64 bid, const RPC::BatchId /* unused */, const RPC::Message &msg)
+void PalladiumDMgr::on_Message(quint64 bid, const RPC::BatchId /* unused */, const RPC::Message &msg)
 {
     TraceM("Msg from: ", bid, " (reqId: ", msg.id, " method: ", msg.method, ")");
 
     // handle the messsage by looking up the context in the table and emitting the proper signal
-    handleMessageCommon(msg, &BitcoinDMgrHelper::ReqCtxObj::results);
+    handleMessageCommon(msg, &PalladiumDMgrHelper::ReqCtxObj::results);
 }
 
-void BitcoinDMgr::on_ErrorMessage(quint64 bid, const RPC::Message &msg)
+void PalladiumDMgr::on_ErrorMessage(quint64 bid, const RPC::Message &msg)
 {
     DebugM("ErrMsg from: ", bid, " (reqId: ", msg.id, ", method: ", msg.method, ") code=", msg.errorCode(),
            " error=", msg.errorMessage());
@@ -749,19 +749,19 @@ void BitcoinDMgr::on_ErrorMessage(quint64 bid, const RPC::Message &msg)
     }
 
     // handle the messsage by looking up the context in the table and emitting the proper signal
-    handleMessageCommon(msg, &BitcoinDMgrHelper::ReqCtxObj::error);
+    handleMessageCommon(msg, &PalladiumDMgrHelper::ReqCtxObj::error);
 }
 
 
-namespace BitcoinDMgrHelper {
+namespace PalladiumDMgrHelper {
     /* static */ std::atomic_int ReqCtxObj::extant{0};
     ReqCtxObj::ReqCtxObj(int timeout) : QObject(nullptr), timeout(timeout) { ++extant; }
     ReqCtxObj::~ReqCtxObj() { --extant; }
 }
 
 
-/* --- BitcoinD --- */
-auto BitcoinD::stats() const -> Stats
+/* --- PalladiumD --- */
+auto PalladiumD::stats() const -> Stats
 {
     auto m = RPC::HttpConnection::stats().toMap();
     m["lastPeerError"] = badAuth ? "Auth Failure" : lastPeerError;
@@ -773,12 +773,12 @@ auto BitcoinD::stats() const -> Stats
     return m;
 }
 
-BitcoinD::BitcoinD(const BitcoinD_RPCInfo &rinfo)
+PalladiumD::PalladiumD(const PalladiumD_RPCInfo &rinfo)
     : RPC::HttpConnection(nullptr, newId(), nullptr, 0 /* = unlimited read buffer -- no limit to response size */),
       rpcInfo(rinfo)
 {
     static int N = 1;
-    setObjectName(QString("BitcoinD.%1").arg(N++));
+    setObjectName(QString("PalladiumD.%1").arg(N++));
     _thread.setObjectName(objectName());
 
     const auto & [host, port] = rpcInfo.hostPort;
@@ -790,14 +790,14 @@ BitcoinD::BitcoinD(const BitcoinD_RPCInfo &rinfo)
 }
 
 
-BitcoinD::~BitcoinD()
+PalladiumD::~PalladiumD()
 {
     stop();
 }
 
-void BitcoinD::connectMiscSignals()
+void PalladiumD::connectMiscSignals()
 {
-    connect(this, &BitcoinD::gotMessage, this, [this]{
+    connect(this, &PalladiumD::gotMessage, this, [this]{
         // this hook emits "authenticated" as soon as we get a good result message via 'do_ping' initiated from 'on_connected' below
         if (needAuth || badAuth) {
             needAuth = badAuth = false;
@@ -806,12 +806,12 @@ void BitcoinD::connectMiscSignals()
     });
 }
 
-bool BitcoinD::isGood() const
+bool PalladiumD::isGood() const
 {
     return !badAuth && !needAuth && RPC::HttpConnection::isGood();
 }
 
-void BitcoinD::on_started()
+void PalladiumD::on_started()
 {
     ThreadObjectMixin::on_started();
 
@@ -827,17 +827,17 @@ void BitcoinD::on_started()
                 return false; // kill timer
             });
         };
-        conns += connect(this, &BitcoinD::lostConnection, this, [SetTimer]{
+        conns += connect(this, &PalladiumD::lostConnection, this, [SetTimer]{
             Log() << "Lost connection to palladiumd, will retry every 5 seconds ...";
             SetTimer();
         });
-        conns += connect(this, &BitcoinD::authFailure, this, [SetTimer, this] {
+        conns += connect(this, &PalladiumD::authFailure, this, [SetTimer, this] {
             const auto errorOption = rpcInfo.hasCookieFile() ? "rpccookie is" : "rpcuser and rpcpass are";
             Error() << "Authentication to palladiumd rpc failed. Please check the " << errorOption << " correct and restart!";
             badAuth = true;
             SetTimer();
         });
-        conns += connect(this, &BitcoinD::authenticated, this, [this] { stopTimer(reconnectTimer); });
+        conns += connect(this, &PalladiumD::authenticated, this, [this] { stopTimer(reconnectTimer); });
 
         SetTimer();
     }
@@ -845,7 +845,7 @@ void BitcoinD::on_started()
     reconnect();
 }
 
-void BitcoinD::reconnect()
+void PalladiumD::reconnect()
 {
     if (socket) delete socket;
     // set the basic authentication token each time (may re-read the .cookie file if we are using that file)
@@ -880,7 +880,7 @@ void BitcoinD::reconnect()
     }
 }
 
-void BitcoinD::on_connected()
+void PalladiumD::on_connected()
 {
     RPC::HttpConnection::on_connected();
     lastGood = Util::getTime();
@@ -895,12 +895,12 @@ void BitcoinD::on_connected()
     do_ping();
 }
 
-void BitcoinD::do_ping()
+void PalladiumD::do_ping()
 {
     if constexpr (DEBUG_PINGS)
         Debug(Log::Magenta) << __func__ << ": lastGoodAge: " << (Util::getTime() - lastGood);
     // Note: see issue #116. If we are in block download, on particularly slow systems with HDD, sometimes
-    // we spuriously detected the BitcoinD connection as "stale".  In order to avoid this situation, we disable
+    // we spuriously detected the PalladiumD connection as "stale".  In order to avoid this situation, we disable
     // auto-reconnection due to "staleness".  Instead, we rely on request timeouts (10 mins for block dls) to
     // eventually detect the edge case of a bitcoind that is stopped/deadlocked (should never happen in practice).
     if (const bool stale = isStale(); stale && !inBlockDownload) {
@@ -914,7 +914,7 @@ void BitcoinD::do_ping()
     }
 }
 
-void BitcoinD::resetPingTimer(int time_ms)
+void PalladiumD::resetPingTimer(int time_ms)
 {
     auto setter = [time_ms, this] {
         if (pingtime_ms != time_ms)
@@ -937,7 +937,7 @@ void BitcoinD::resetPingTimer(int time_ms)
         Util::AsyncOnObject(this, setter, 0);
 }
 
-void BitcoinD::on_inBlockDownload(bool b)
+void PalladiumD::on_inBlockDownload(bool b)
 {
     if (inBlockDownload != b) {
         DebugM(__func__, ": ", int(inBlockDownload), " -> ", int(b));
@@ -946,7 +946,7 @@ void BitcoinD::on_inBlockDownload(bool b)
 }
 
 
-QVariantMap BitcoinDInfo::toVariantMap() const
+QVariantMap PalladiumDInfo::toVariantMap() const
 {
     QVariantMap ret;
     ret["version"] = version.toString(true);
@@ -964,7 +964,7 @@ QVariantMap BitcoinDInfo::toVariantMap() const
     return ret;
 }
 
-qint64 BitcoinDMgr::CachedResult::ageMSec() const
+qint64 PalladiumDMgr::CachedResult::ageMSec() const
 {
     return std::max<qint64>(Util::getTime() - timeStamp, 0);
 }

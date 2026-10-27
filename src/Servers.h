@@ -134,7 +134,7 @@ protected:
     QHash<QString, Lambda> endPoints;
 };
 
-class BitcoinDMgr;
+class PalladiumDMgr;
 class Client;
 class QSslSocket;
 class Storage;
@@ -170,7 +170,7 @@ protected:
                const QHostAddress & address, quint16 port,
                const std::shared_ptr<const Options> & options,
                const std::shared_ptr<Storage> & storage,
-               const std::shared_ptr<BitcoinDMgr> & bitcoindmgr);
+               const std::shared_ptr<PalladiumDMgr> & bitcoindmgr);
     ServerBase() = delete; ///< just to drive the "do not construct me" point home further. :)
 
 public:
@@ -274,9 +274,9 @@ protected:
 
     struct DontAutoSendReply_t {};
     static constexpr DontAutoSendReply_t DontAutoSendReply{};
-    using BitcoinDSuccessFuncResult = std::variant<QVariant, DontAutoSendReply_t>;
-    using BitcoinDSuccessFunc = std::function<BitcoinDSuccessFuncResult(const RPC::Message &)>;
-    using BitcoinDErrorFunc = std::function<void(const RPC::Message &)>; // errfunc should always throw RPCError to indicate the exact error it wants to send.
+    using PalladiumDSuccessFuncResult = std::variant<QVariant, DontAutoSendReply_t>;
+    using PalladiumDSuccessFunc = std::function<PalladiumDSuccessFuncResult(const RPC::Message &)>;
+    using PalladiumDErrorFunc = std::function<void(const RPC::Message &)>; // errfunc should always throw RPCError to indicate the exact error it wants to send.
 
     /// Used by some of the slower rpc methods to do work in a threadpool thread. This returns right away but schedules
     /// the work for later and handles sending the response (returned from work) to the client as well as sending
@@ -298,8 +298,8 @@ protected:
                                    const RPC::Message::Id & reqId,  ///< the original client request id
                                    const QString &method, ///< bitcoind method to invoke
                                    const QVariantList &params, ///< params for bitcoind method
-                                   const BitcoinDSuccessFunc & successFunc,
-                                   const BitcoinDErrorFunc & errorFunc = BitcoinDErrorFunc(),
+                                   const PalladiumDSuccessFunc & successFunc,
+                                   const PalladiumDErrorFunc & errorFunc = PalladiumDErrorFunc(),
                                    std::optional<int> useCacheIfNotOlderThan = std::nullopt);
 
     /// Subclasses may set this pointer if they wish the generic_do_async function above to use a private/custom
@@ -310,8 +310,8 @@ protected:
     const std::shared_ptr<const Options> options;
     /// pointer to shared Storage object -- owned and controlled by the Controller instance
     const std::shared_ptr<Storage> storage;
-    /// pointer to shared BitcoinDMgr object -- owned and controlled by the Controller instance
-    const std::shared_ptr<BitcoinDMgr> bitcoindmgr;
+    /// pointer to shared PalladiumDMgr object -- owned and controlled by the Controller instance
+    const std::shared_ptr<PalladiumDMgr> bitcoindmgr;
 
     PeerInfoList peers;
 
@@ -351,7 +351,7 @@ class Server : public ServerBase
     Q_OBJECT
 public:
     Server(SrvMgr *, const QHostAddress & address, quint16 port, const std::shared_ptr<const Options> & options,
-           const std::shared_ptr<Storage> & storage, const std::shared_ptr<BitcoinDMgr> & bitcoindmgr);
+           const std::shared_ptr<Storage> & storage, const std::shared_ptr<PalladiumDMgr> & bitcoindmgr);
     ~Server() override;
 
     /// This is refactored code that is called both from here (rpc_server_features) and from the PeerMgr
@@ -517,7 +517,7 @@ class ServerSSL : public Server
     Q_OBJECT
 public:
     ServerSSL(SrvMgr *, const QHostAddress & address, quint16 port, const std::shared_ptr<const Options> & options,
-              const std::shared_ptr<Storage> & storage, const std::shared_ptr<BitcoinDMgr> & bitcoindmgr);
+              const std::shared_ptr<Storage> & storage, const std::shared_ptr<PalladiumDMgr> & bitcoindmgr);
     ~ServerSSL() override;
 
     QString prettyName() const override; ///< overrides super to indicate SSL in server name
@@ -549,7 +549,7 @@ class AdminServer : public ServerBase
 {
 public:
     AdminServer(SrvMgr *srvMgr, const QHostAddress & address, quint16 port, const std::shared_ptr<const Options> & options,
-                const std::shared_ptr<Storage> & storage, const std::shared_ptr<BitcoinDMgr> & bitcoindmgr,
+                const std::shared_ptr<Storage> & storage, const std::shared_ptr<PalladiumDMgr> & bitcoindmgr,
                 const std::weak_ptr<PeerMgr> & peerMgr = {});
     ~AdminServer() override;
 

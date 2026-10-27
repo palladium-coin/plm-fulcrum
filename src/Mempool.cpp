@@ -730,7 +730,7 @@ bool Mempool::Tx::deepEqual(const Tx &o) const noexcept {
 
 #ifdef ENABLE_TESTS
 #include "App.h"
-#include "BitcoinD.h"
+#include "PalladiumD.h"
 #include "BTC.h"
 #include "Json/Json.h"
 #include "Options.h"
@@ -912,7 +912,7 @@ namespace {
         return txids;
     }
 
-    TXOMap getCoinsFromBitcoinD(const QString &bitciondEnvSpec, const MPData &mpd) {
+    TXOMap getCoinsFromPalladiumD(const QString &bitciondEnvSpec, const MPData &mpd) {
         TXOMap ret;
         // format is: user:pass@ip:port
         const auto sl = bitciondEnvSpec.split('@');
@@ -922,8 +922,8 @@ namespace {
         if (upl.size() != 2) throw Exception(msg);
         const QString user = upl.front(), pass = upl.back();
         const auto hostPort = Util::ParseHostPortPair(sl.back(), true);
-        Debug() << "BitcoinD host:port: " << hostPort.first << ":" << hostPort.second;
-        BitcoinD_RPCInfo info;
+        Debug() << "PalladiumD host:port: " << hostPort.first << ":" << hostPort.second;
+        PalladiumD_RPCInfo info;
         info.setStaticUserPass(user, pass);
         info.hostPort = hostPort;
         QThread dummyThr;
@@ -932,20 +932,20 @@ namespace {
             Debug() << "Waiting for thread ...";
             dummyThr.wait();
         });
-        BitcoinDMgr bitcoindMgr(Options::defaultBdNClients, info);
+        PalladiumDMgr bitcoindMgr(Options::defaultBdNClients, info);
         dummyThr.start();
         std::promise<bool> promise;
         auto future = promise.get_future();
         QObject context;
         context.moveToThread(&dummyThr);
-        bitcoindMgr.connect(&bitcoindMgr, &BitcoinDMgr::gotFirstGoodConnection, &context, [&promise]{ promise.set_value(true); });
-        bitcoindMgr.connect(&bitcoindMgr, &BitcoinDMgr::allConnectionsLost, &context, [&promise]{ promise.set_value(false); });
-        Debug() << "Starting BitcoinDMgr ...";
+        bitcoindMgr.connect(&bitcoindMgr, &PalladiumDMgr::gotFirstGoodConnection, &context, [&promise]{ promise.set_value(true); });
+        bitcoindMgr.connect(&bitcoindMgr, &PalladiumDMgr::allConnectionsLost, &context, [&promise]{ promise.set_value(false); });
+        Debug() << "Starting PalladiumDMgr ...";
         bitcoindMgr.startup();
         if (auto res = future.wait_for(std::chrono::seconds{5}); res != std::future_status::ready)
-            throw Exception("No BitcoinD connections are ready after 5 seconds");
+            throw Exception("No PalladiumD connections are ready after 5 seconds");
         else if (!future.get())
-            throw Exception("Failed to connect to BitcoinD at " + bitciondEnvSpec);
+            throw Exception("Failed to connect to PalladiumD at " + bitciondEnvSpec);
         using PrevTxMap = std::unordered_map<bitcoin::uint256, bitcoin::CTransactionRef, BTC::uint256HashHasher>;
         PrevTxMap prevTxs;
         std::mutex mutPrevTxs;
@@ -1035,10 +1035,10 @@ namespace {
                                 }
                             },
                             [promiseRef](const RPC::Message &m) {
-                                promiseRef->set_value("BitcoinD Error result: " + m.errorMessage());
+                                promiseRef->set_value("PalladiumD Error result: " + m.errorMessage());
                             },
                             [promiseRef](const RPC::Message::Id &, const QString & failureReason){
-                                promiseRef->set_value("BitcoinD Failure: " + failureReason);
+                                promiseRef->set_value("PalladiumD Failure: " + failureReason);
                             }
                         );
                     }
@@ -1093,7 +1093,7 @@ namespace {
 
         if (auto const * envbdinfo = std::getenv("BITCOIND"))
             // may throw, otherwise will reach out to bitcoin daemon for prevtxs to populate coin map
-            realCoins = getCoinsFromBitcoinD(QString::fromUtf8(envbdinfo), mpd);
+            realCoins = getCoinsFromPalladiumD(QString::fromUtf8(envbdinfo), mpd);
 
         static const auto deepCopyMPD = [](const MPData &other) -> MPData {
             MPData ret;

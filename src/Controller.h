@@ -18,7 +18,7 @@
 //
 #pragma once
 
-#include "BitcoinD.h"
+#include "PalladiumD.h"
 #include "BTC.h"
 #include "BlockProc.h"
 #include "Mixins.h"
@@ -116,9 +116,9 @@ protected slots:
     /// the supplied block was the next one by height).
     void on_putBlock(CtlTask *, PreProcessedBlockPtr);
 
-    /// Slot for the BitcoinDMgr::bitcoinCoreDetection. This is compared to this->coinType and if there is a
+    /// Slot for the PalladiumDMgr::bitcoinCoreDetection. This is compared to this->coinType and if there is a
     /// mismatch there, we may end up aborting the app and logging an error in this slot.
-    void on_coinDetected(BTC::Coin); //< NB: Connected via DirectConnection and may run in the BitcoinDMgr thread!
+    void on_coinDetected(BTC::Coin); //< NB: Connected via DirectConnection and may run in the PalladiumDMgr thread!
 
 private:
     friend class CtlTask;
@@ -144,7 +144,7 @@ private:
     const std::shared_ptr<const Options> options;
     const SSLCertMonitor * const sslCertMonitor;
     std::shared_ptr<Storage> storage; ///< shared with srvmgr, but we control its lifecycle
-    std::shared_ptr<BitcoinDMgr> bitcoindmgr; ///< shared with srvmgr, but we control its lifecycle
+    std::shared_ptr<PalladiumDMgr> bitcoindmgr; ///< shared with srvmgr, but we control its lifecycle
     std::unique_ptr<SrvMgr> srvmgr; ///< NB: this may be nullptr if we haven't yet synched up and started listening.  Additionally, this should be destructed before storage or bitcoindmgr.
 
     struct StateMachine;
@@ -174,7 +174,7 @@ private:
     std::atomic_bool masterNotifySubsFlag = false;
 
     /// Comes from DB. If DB had no entry (newly initialized DB), then we update this variable whe we first connect
-    /// to the BitcoinD.  The only supported node is /Palladium:... (PLM).
+    /// to the PalladiumD.  The only supported node is /Palladium:... (PLM).
     std::atomic<BTC::Coin> coinType = BTC::Coin::Unknown;
 
     /// takes locks, prints to Log() every 30 seconds if there were changes
@@ -230,10 +230,10 @@ private:
     using ZmqTopic = ZmqPvt::Topic;
 
     /// (re)starts listening for notifications from the ZmqNotifier for this topic; called if we received a valid zmq
-    /// address for this topic from BitcoinDMgr, after servers are started.
+    /// address for this topic from PalladiumDMgr, after servers are started.
     void zmqTopicStart(ZmqTopic topic);
 
-    /// Stops the ZmqNotifier for this topic; called if we received an empty address for this topic from BitcoinDMgr or
+    /// Stops the ZmqNotifier for this topic; called if we received an empty address for this topic from PalladiumDMgr or
     /// when all connections to bitcoind are lost
     void zmqTopicStop(ZmqTopic topic);
 
@@ -249,7 +249,7 @@ private:
     /// Latched to true as soon as on_coinDetected is called at least once. This allows us to wait until bitcoind tells
     /// us what coin we are connected to before we proceed with initial synch. Also latched to true if we already have
     /// a "coin" defined in storage already.
-    std::atomic_bool didReceiveCoinDetectionFromBitcoinDMgr = false;
+    std::atomic_bool didReceiveCoinDetectionFromPalladiumDMgr = false;
 
 protected:
     /// Called from the poll timer to restart the state machine and get latest blocks and mempool (process());
@@ -304,8 +304,8 @@ protected:
     void on_error_retry(const RPC::Message &, const char *msg);
     void on_failure(const RPC::Message::Id &, const QString &msg);
 
-    using ResultsF = BitcoinDMgr::ResultsF;
-    using ErrorF = BitcoinDMgr::ErrorF;
+    using ResultsF = PalladiumDMgr::ResultsF;
+    using ErrorF = PalladiumDMgr::ErrorF;
     quint64 submitRequest(const QString &method, const QVariantList &params, const ResultsF &resultsFunc,
                           const ErrorF &errorFunc = {});
 

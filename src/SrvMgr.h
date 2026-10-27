@@ -30,7 +30,7 @@
 #include <memory>
 #include <mutex>
 
-class BitcoinDMgr;
+class PalladiumDMgr;
 class PeerMgr;
 class SSLCertMonitor;
 class Storage;
@@ -43,7 +43,7 @@ public:
     explicit SrvMgr(const std::shared_ptr<const Options> & options,
                     const SSLCertMonitor * certMon /* nullable */,
                     const std::shared_ptr<Storage> & storage,
-                    const std::shared_ptr<BitcoinDMgr> & bitcoindmgr,
+                    const std::shared_ptr<PalladiumDMgr> & bitcoindmgr,
                     QObject *parent = nullptr);
     ~SrvMgr() override;
     void startup() override; // may throw on error
@@ -170,7 +170,7 @@ private:
     const std::shared_ptr<const Options> options;
     const SSLCertMonitor * const sslCertMonitor;
     std::shared_ptr<Storage> storage;
-    std::shared_ptr<BitcoinDMgr> bitcoindmgr;
+    std::shared_ptr<PalladiumDMgr> bitcoindmgr;
     std::list<std::unique_ptr<Server>> servers;
     std::list<std::unique_ptr<AdminServer>> adminServers;
     std::shared_ptr<PeerMgr> peermgr; ///< will be nullptr if options->peerDiscovery is false

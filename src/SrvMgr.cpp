@@ -19,7 +19,7 @@
 #include "SrvMgr.h"
 
 #include "App.h"
-#include "BitcoinD.h"
+#include "PalladiumD.h"
 #include "Compat.h"
 #include "PeerMgr.h"
 #include "ServerMisc.h"
@@ -42,7 +42,7 @@ namespace {
 SrvMgr::SrvMgr(const std::shared_ptr<const Options> & options,
                const SSLCertMonitor * certMon,
                const std::shared_ptr<Storage> & s,
-               const std::shared_ptr<BitcoinDMgr> & bdm,
+               const std::shared_ptr<PalladiumDMgr> & bdm,
                QObject *parent)
     : Mgr(parent), options(options), sslCertMonitor(certMon), storage(s), bitcoindmgr(bdm),
       perIPData(this, tableSqueezeThreshold /* initialCapacity */, tableSqueezeThreshold)

@@ -18,7 +18,7 @@
 //
 #pragma once
 
-#include "BitcoinD_RPCInfo.h"
+#include "PalladiumD_RPCInfo.h"
 #include "BlockProcTypes.h"
 #include "Mixins.h"
 #include "Mgr.h"
@@ -38,13 +38,13 @@
 #include <shared_mutex>
 #include <vector>
 
-class BitcoinD;
-namespace BitcoinDMgrHelper { class ReqCtxObj; }
+class PalladiumD;
+namespace PalladiumDMgrHelper { class ReqCtxObj; }
 
-using BitcoinDZmqNotifications = QMultiHash<QString, QString>; ///< "topic"-> "endpoint" e.g. "hashblock" -> "tcp://192.168.0.2:8333"
+using PalladiumDZmqNotifications = QMultiHash<QString, QString>; ///< "topic"-> "endpoint" e.g. "hashblock" -> "tcp://192.168.0.2:8333"
 
 /// This basically all comes from bitcoind RPC `getnetworkinfo`
-struct BitcoinDInfo {
+struct PalladiumDInfo {
     Version version {0,0,0}; ///> major, minor, revision e.g. {0, 20, 6} for v0.20.6
     QString subversion; ///< subversion string from daemon e.g.: /Palladium:2.1.0/
     double relayFee = 0.0; ///< from 'relayfee' in the getnetworkinfo response; minimum fee/kb to relay a tx, usually: 0.00001000
@@ -58,27 +58,27 @@ struct BitcoinDInfo {
     bool isPLM = false; ///< true if we are connected to a /Palladium:.. node (Palladium, PLM)
 
     /// The below field is populated from bitcoind RPC `getzmqnotifications` (if supported and if we are compiled to
-    /// use libzmq).  Note that entires in here are auto-transformed by BitcoinDMgr such that:
+    /// use libzmq).  Note that entires in here are auto-transformed by PalladiumDMgr such that:
     ///     {"pubhashblock" : "tcp://0.0.0.0:8433"} -> { "hashblock" : "tcp://192.68.10.4:8433" }
     /// In other words, the topic has the "pub" prefix chopped off, and the 0.0.0.0 IP that bitcoind reports
     /// gets automatically transformed to the IP or hostname that we know we can use to connect to bitcoind.
-    BitcoinDZmqNotifications zmqNotifications;
+    PalladiumDZmqNotifications zmqNotifications;
 
     /// Return all the information in this obejct as a QVariantMap suitable for placing into JSON results, etc (used by /stats and `getinfo`)
     QVariantMap toVariantMap() const;
 };
 
-class BitcoinDMgr : public Mgr, public IdMixin, public ThreadObjectMixin, public TimersByNameMixin
+class PalladiumDMgr : public Mgr, public IdMixin, public ThreadObjectMixin, public TimersByNameMixin
 {
     Q_OBJECT
 public:
-    BitcoinDMgr(unsigned nClients, const BitcoinD_RPCInfo &rpcInfo);
-    ~BitcoinDMgr() override;
+    PalladiumDMgr(unsigned nClients, const PalladiumD_RPCInfo &rpcInfo);
+    ~PalladiumDMgr() override;
 
     void startup() override; ///< from Mgr
     void cleanup() override; ///< from Mgr
 
-    const unsigned nClients; ///< The number of simultaneous BitcoinD clients we spawn. Always >=1. Comes ultimately from Options::bdNClients.
+    const unsigned nClients; ///< The number of simultaneous PalladiumD clients we spawn. Always >=1. Comes ultimately from Options::bdNClients.
 
     using ResultsF = std::function<void(const RPC::Message &response)>;
     using ErrorF = ResultsF; // identical to ResultsF above except the message passed in is an error="" message.
@@ -95,41 +95,41 @@ public:
     /// regardless of which thread context it's called in, with one of the 3 following being called later, in the thread
     /// context of `sender`, when results/errors/failure is determined:
     /// - ResultsF will be called exactly once on success with the reults encapsulated in an RPC::Message
-    /// - If BitcoinD generated an error response, ErrorF will be called exactly once with the error wrapped in an
+    /// - If PalladiumD generated an error response, ErrorF will be called exactly once with the error wrapped in an
     ///   RPC::Message
-    /// - If some other error occurred (such as timeout, or BitcoinD not connected, or connection lost, etc), FailF
+    /// - If some other error occurred (such as timeout, or PalladiumD not connected, or connection lost, etc), FailF
     ///   will be called exactly once with a string message.
     ///
     /// If at any time before results are ready the `sender` object is deleted, nothing will be called and everything
     /// related to this request will be cleaned up automatically.
     /// NOTE:  the `id` for the request *must* be unique with respect to all other extant requests to bitcoind;
     ///        use newId() to guarantee this.
-    /// NOTE2: calling this method while this BitcoinDManager is stopped or about to be stopped is not supported.
+    /// NOTE2: calling this method while this PalladiumDManager is stopped or about to be stopped is not supported.
     void submitRequest(QObject *sender, const RPC::Message::Id &id, const QString & method, const QVariantList & params,
                        const ResultsF & = ResultsF(), const ErrorF & = ErrorF(), const FailF & = FailF(),
                        int timeout = kDefaultTimeoutMS, std::optional<int> cachedResultOkIfNotOlderThan = std::nullopt);
 
-    /// Thread-safe.  Returns a copy of the BitcoinDInfo object.  This object is refreshed each time we
-    /// reconnect to BitcoinD.  This is called by ServerBase in various places.
-    BitcoinDInfo getBitcoinDInfo() const;
+    /// Thread-safe.  Returns a copy of the PalladiumDInfo object.  This object is refreshed each time we
+    /// reconnect to PalladiumD.  This is called by ServerBase in various places.
+    PalladiumDInfo getPalladiumDInfo() const;
 
     /// Call this to "nudge" bitcoind and ask it again for network info (used by a paranoia codepath in Controller.cpp)
-    void requestBitcoinDInfoRefresh();
+    void requestPalladiumDInfoRefresh();
 
     /// Thread-safe.  Returns a copy of the bitcoinDGenesisHash.  This hash is refreshed each time we
-    /// reconnect to BitcoinD.  If empty, we haven't yet had a valid and successful bitcoind connection.
+    /// reconnect to PalladiumD.  If empty, we haven't yet had a valid and successful bitcoind connection.
     /// This is called by the Controller task to check sanity and bail if it doesn't match the hash stored
     /// in the db. See also: Storage::genesisHash().
-    BlockHash getBitcoinDGenesisHash() const;
+    BlockHash getPalladiumDGenesisHash() const;
 
-    /// Thread-safe.  Convenient method to avoid an extra copy. Returns getBitcoinDInfo().version
-    Version getBitcoinDVersion() const;
+    /// Thread-safe.  Convenient method to avoid an extra copy. Returns getPalladiumDInfo().version
+    Version getPalladiumDVersion() const;
 
-    /// Thread-safe.  Convenient method to avoid an extra copy. Returns getBitcoinDInfo().zmqNotifications
-    BitcoinDZmqNotifications getZmqNotifications() const;
+    /// Thread-safe.  Convenient method to avoid an extra copy. Returns getPalladiumDInfo().zmqNotifications
+    PalladiumDZmqNotifications getZmqNotifications() const;
 
-    /// Thread-safe.  Convenient method to avoid an extra copy. Returns getBitcoinDInfo().rpcSupportInfo
-    BitcoinDInfo::RpcSupportInfo getRpcSupportInfo() const;
+    /// Thread-safe.  Convenient method to avoid an extra copy. Returns getPalladiumDInfo().rpcSupportInfo
+    PalladiumDInfo::RpcSupportInfo getRpcSupportInfo() const;
 
 signals:
     void gotFirstGoodConnection(quint64 bitcoindId); // emitted whenever the first bitcoind after a "down" state (or after startup) gets its first good status (after successful authentication)
@@ -142,15 +142,15 @@ signals:
     /// subversion is /Palladium:...; any other node is refused.
     void coinDetected(BTC::Coin);
 
-    /// Emitted whenever the BitcoinDZmqNotifications change (this is also emitted the first time we retrieve them
+    /// Emitted whenever the PalladiumDZmqNotifications change (this is also emitted the first time we retrieve them
     /// via getzmqnotifications). Note: this is never emitted if we are compiled without zmq support.
-    void zmqNotificationsChanged(BitcoinDZmqNotifications);
+    void zmqNotificationsChanged(PalladiumDZmqNotifications);
 
     /// Emitted whenever we detected the optimal ping method to use: "uptime" (fast)  or "help help" (slower, more compatible)
     void detectedFastPingMethod(bool fast);
 
-    /// Emitted by Controller whenever a block download starts and ends. This ends up controlling whether BitcoinD's
-    /// disconnect the socket if they go "stale". Sometimes we get spurious "staleness" in BitcoinD when it's busy
+    /// Emitted by Controller whenever a block download starts and ends. This ends up controlling whether PalladiumD's
+    /// disconnect the socket if they go "stale". Sometimes we get spurious "staleness" in PalladiumD when it's busy
     /// servicing a getblock request.  So during block download, we never disconnect if "stale".
     void inBlockDownload(bool b);
 
@@ -167,46 +167,46 @@ protected:
     void on_finished() override; // from ThreadObjectMixin
 
 protected slots:
-    // connected to BitcoinD gotMessage signal
+    // connected to PalladiumD gotMessage signal
     void on_Message(quint64 bitcoindId, const RPC::BatchId batchId, const RPC::Message &msg);
-    // connected to BitcoinD gotErrorMessage signal
+    // connected to PalladiumD gotErrorMessage signal
     void on_ErrorMessage(quint64 bitcoindId, const RPC::Message &msg);
 
 private:
-    const BitcoinD_RPCInfo rpcInfo;
+    const PalladiumD_RPCInfo rpcInfo;
 
     static constexpr int miniTimeout = 333, tinyTimeout = 167, medTimeout = 500, longTimeout = 1000;
 
-    std::set<quint64> goodSet; ///< set of bitcoind's (by id) that are `isGood` (connected, authed). This set is updated as we get signaled from BitcoinD objects. May be empty. Has at most N_CLIENTS elements.
+    std::set<quint64> goodSet; ///< set of bitcoind's (by id) that are `isGood` (connected, authed). This set is updated as we get signaled from PalladiumD objects. May be empty. Has at most N_CLIENTS elements.
 
-    std::vector<std::unique_ptr<BitcoinD>> clients;
+    std::vector<std::unique_ptr<PalladiumD>> clients;
     unsigned roundRobinCursor = 0; ///< this is incremented each time. use this % N_CLIENTS to dole out bitcoind's in a round-robin fashion
 
-    BitcoinD *getBitcoinD(); ///< may return nullptr if none are up. Otherwise does a round-robin of the ones present to grab one. to be called only in this thread.
+    PalladiumD *getPalladiumD(); ///< may return nullptr if none are up. Otherwise does a round-robin of the ones present to grab one. to be called only in this thread.
 
     mutable std::shared_mutex bitcoinDInfoLock;
-    BitcoinDInfo bitcoinDInfo;     ///< guarded by bitcoinDInfoLock
+    PalladiumDInfo bitcoinDInfo;     ///< guarded by bitcoinDInfoLock
 
-    void refreshBitcoinDNetworkInfo(); ///< whenever bitcoind comes back alive, this is invoked to update the bitcoinDInfo struct
+    void refreshPalladiumDNetworkInfo(); ///< whenever bitcoind comes back alive, this is invoked to update the bitcoinDInfo struct
 
     mutable std::shared_mutex bitcoinDGenesisHashLock;
     /// When we first (re)connect to bitcoind, we query this info to make sure it's still sane.
     BlockHash bitcoinDGenesisHash; ///< guarded by bitcoinDGenesisHashLock
 
     /// called whenever bitcoind comes back alive, updates bitcoinDGenesisHash
-    void refreshBitcoinDGenesisHash();
+    void refreshPalladiumDGenesisHash();
 
     /// called whenever bitcoind comes back alive, updates bitcoinDInfo.zmqNotifications (only called if we are compiled with zmq support)
-    void refreshBitcoinDZmqNotifications();
+    void refreshPalladiumDZmqNotifications();
 
 
     /// called whenever bitcoind comes back alive, detects whether bitcoind has the 'uptime' RPC call. And if so,
     /// emits detectedFastPingMethod(true), otherwise emits detectedFastPingMethod(false) if it lacks the RPC.
-    void probeBitcoinDHasUptimeRPC();
+    void probePalladiumDHasUptimeRPC();
 
 
     // -- Request context table and request handler function --
-    QHash<RPC::Message::Id, std::weak_ptr<BitcoinDMgrHelper::ReqCtxObj>> reqContextTable; // this should only be accessed from this thread
+    QHash<RPC::Message::Id, std::weak_ptr<PalladiumDMgrHelper::ReqCtxObj>> reqContextTable; // this should only be accessed from this thread
     // called in on_Message and on_ErrorMessage -- dispatches message by emitting proper signal
     template <typename ReqCtxObjT> // <-- we must template this here because ReqCtxObj is not defined yet. :/
     void handleMessageCommon(const RPC::Message &, void (ReqCtxObjT::*resultsOrErrorFunc)(const RPC::Message &));
@@ -218,13 +218,13 @@ private:
 
     /// Periodically checks the reqContextTable and expires extant requests that have timed out.
     void requestTimeoutChecker();
-    /// Called from lostConnection() and destroyed() on a BitcoinD in order to notify all extant requests of the failure
-    /// Note that `bd` pointer is never dereferenced, and it can be any QObject, but it should be a `BitcoinD`.
-    /// (it's ok to pass a `BitcoinD` that is destructing and is now a `QObject`)
-    void notifyFailForRequestsMatchingBitcoinD(const QObject *bd, const QString &errorMessage);
+    /// Called from lostConnection() and destroyed() on a PalladiumD in order to notify all extant requests of the failure
+    /// Note that `bd` pointer is never dereferenced, and it can be any QObject, but it should be a `PalladiumD`.
+    /// (it's ok to pass a `PalladiumD` that is destructing and is now a `QObject`)
+    void notifyFailForRequestsMatchingPalladiumD(const QObject *bd, const QString &errorMessage);
 
     /// Thread-safe. Called internally when a new map retrieved from bitcoind. If the map changed, zmqNotificationsChanged will be emitted.
-    void setZmqNotifications(const BitcoinDZmqNotifications &);
+    void setZmqNotifications(const PalladiumDZmqNotifications &);
     /// Latched to false after the first time setZmqNotifications() is called.
     /// Used to unconditionally emit the signal the first time through, even if we got an empty map.
     bool setZmqNotificationsWasNeverCalled = true;
@@ -244,7 +244,7 @@ private:
     QHash<QString, CachedResult> cachedResultsTable; ///< guarded-by cachedResultsLock
 
     /// Thread-safe.  Returns a copy of the CachedResult object for method, if found, or std::nullopt otherwise.
-    /// Note that all cached results are cleared each time we reconnect to BitcoinD.
+    /// Note that all cached results are cleared each time we reconnect to PalladiumD.
     std::optional<CachedResult> getCachedResult(const QString &method) const;
     /// Thread-safe, caches a result, updating the internal timestamp to current.
     void updateCachedResult(const QString &method, qint64 maxAge, QVariant result);
@@ -257,13 +257,13 @@ private:
     void expireOldCachedResults();
 };
 
-class BitcoinD : public RPC::HttpConnection, public ThreadObjectMixin /* NB: also inherits TimersByNameMixin via AbstractConnection base */
+class PalladiumD : public RPC::HttpConnection, public ThreadObjectMixin /* NB: also inherits TimersByNameMixin via AbstractConnection base */
 {
     Q_OBJECT
 
 public:
-    explicit BitcoinD(const BitcoinD_RPCInfo &rpcInfo);
-    ~BitcoinD() override;
+    explicit PalladiumD(const PalladiumD_RPCInfo &rpcInfo);
+    ~PalladiumD() override;
 
     using ThreadObjectMixin::start;
     using ThreadObjectMixin::stop;
@@ -279,7 +279,7 @@ public:
     void resetPingTimer(int time_ms);
 
 public slots:
-    /// Connected to BitcoinDMgr::detectedFastPingMethod (via AutoConnection -> QueuedConnection)
+    /// Connected to PalladiumDMgr::detectedFastPingMethod (via AutoConnection -> QueuedConnection)
     void on_detectedFastPingMethod(bool b) { fastPing = b; }
     void on_inBlockDownload(bool b);
 
@@ -287,8 +287,8 @@ signals:
     /// This is emitted immediately after successful socket connect but before auth. After this signal, client code
     /// can expect either one of the two following signals to be emitted: either the authenticated() signal below,
     /// or the base class's authFailure() signal.
-    void connected(BitcoinD *me);
-    void authenticated(BitcoinD *me); ///< This is emitted after we have successfully connected and auth'd.
+    void connected(PalladiumD *me);
+    void authenticated(PalladiumD *me); ///< This is emitted after we have successfully connected and auth'd.
 
 protected:
     void on_started() override;
@@ -304,20 +304,20 @@ protected:
 private:
     void connectMiscSignals(); ///< some signals/slots to self to do bookkeeping
 
-    const BitcoinD_RPCInfo rpcInfo;
+    const PalladiumD_RPCInfo rpcInfo;
     std::atomic_bool badAuth = false, needAuth = true;
     bool fastPing = false;
     bool inBlockDownload = false;
 };
 
 
-namespace BitcoinDMgrHelper {
-    /// Internal class used by the BitcoinDMgr submitRequest method. Not for use outside BitcoinD.cpp.
+namespace PalladiumDMgrHelper {
+    /// Internal class used by the PalladiumDMgr submitRequest method. Not for use outside PalladiumD.cpp.
     /// (We can't make this a nested class because QObjects with metaobjects/signals cannot be nested classes).
     class ReqCtxObj : public QObject {
         Q_OBJECT
 
-        friend class ::BitcoinDMgr;
+        friend class ::PalladiumDMgr;
         ReqCtxObj(int timeout);
         ~ReqCtxObj() override;
 
@@ -326,10 +326,10 @@ namespace BitcoinDMgrHelper {
         bool timedOut = false;
         const int timeout; //< request timeout in milliseconds. Must be >= 0.
         qint64 ts; ///<--- intentionally uninitialized to save cycles
-        /// The BitcoinD instance that is handling our request. This pointer should *not* be dereferenced but only be
+        /// The PalladiumD instance that is handling our request. This pointer should *not* be dereferenced but only be
         /// used for == compare (since it's running in another thread). The reason why it's a QObject * and not a
-        /// BitcoinD * is because we connect to the `destroyed` signal and check for equality on the (now) QObject
-        /// (which was once a BitcoinD).
+        /// PalladiumD * is because we connect to the `destroyed` signal and check for equality on the (now) QObject
+        /// (which was once a PalladiumD).
         const QObject *bd = nullptr;
 
         /// Mainly used for debugging the lifecycle of this class's instances.

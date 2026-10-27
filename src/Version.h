@@ -48,10 +48,10 @@ struct Version
         : major(maj), minor(min), revision(rev) {}
 
     /// used for c'tor that deserializes Bitcoin compact "version" field (CLIENT_VERSION)
-    enum class BitcoinDCompact : std::uint32_t {};
+    enum class PalladiumDCompact : std::uint32_t {};
     /// To explicitly construct an instance from the version number returned by bitcoind's getnetworkinfo RPC call
-    /// e.g.: 200600 becomes -> 0.20.6. Possible usage syntax: Version v = Version::BitcoinDCompact(num);
-    Version(BitcoinDCompact) noexcept;
+    /// e.g.: 200600 becomes -> 0.20.6. Possible usage syntax: Version v = Version::PalladiumDCompact(num);
+    Version(PalladiumDCompact) noexcept;
 
     // unused
     //enum class BCHDCompact : std::uint32_t {};
@@ -63,7 +63,7 @@ struct Version
     Version(const QString & versionString);
 
     /// Returns the bitcoind compact representation (aka bitcoind CLIENT_VERSION representation).
-    /// This is the inverse of the BitcoinDCompact c'tor. Note this can't store minor or revision fields >= 100.
+    /// This is the inverse of the PalladiumDCompact c'tor. Note this can't store minor or revision fields >= 100.
     unsigned toCompact() const noexcept;
 
     /// back to e.g. "1.2.3".  Note that 1.0.0 is returned as simply "1.0" even if originally parsed from "1.0.0",

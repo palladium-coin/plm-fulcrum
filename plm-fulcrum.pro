@@ -346,8 +346,8 @@ SOURCES += \
     App.cpp \
     BTC.cpp \
     BTC_Address.cpp \
-    BitcoinD.cpp \
-    BitcoinD_RPCInfo.cpp \
+    PalladiumD.cpp \
+    PalladiumD_RPCInfo.cpp \
     BlockProc.cpp \
     CityHash.cpp \
     Common.cpp \
@@ -394,8 +394,8 @@ HEADERS += \
     App.h \
     BTC.h \
     BTC_Address.h \
-    BitcoinD.h \
-    BitcoinD_RPCInfo.h \
+    PalladiumD.h \
+    PalladiumD_RPCInfo.h \
     BlockProc.h \
     BlockProcTypes.h \
     ByteView.h \

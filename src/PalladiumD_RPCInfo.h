@@ -23,7 +23,7 @@
 
 /// Encapsulates all the info one needs to connect to the remote bitcoind RPC
 /// server.
-class BitcoinD_RPCInfo {
+class PalladiumD_RPCInfo {
     /// Location in datadir of the cookie file: Iff not empty, this file will be read each time to get the user:pass,
     /// otherwise if empty, this->user and this->pass will be used
     QString cookieFile;
@@ -33,7 +33,7 @@ class BitcoinD_RPCInfo {
 public:
     /// hostname, port pair. We resolve bitcoind's actual IP address each time if it's a hostname and not an IP address string.
     QPair<QString, quint16> hostPort;
-    /// CLI: --palladiumd-tls. If true, we will connect to the remote bitcoind via SSL/TLS. See BitcoinD.cpp.
+    /// CLI: --palladiumd-tls. If true, we will connect to the remote bitcoind via SSL/TLS. See PalladiumD.cpp.
     bool tls = false;
 
     /// Throws an BadArgs if file is the empty string, otherwise always succeeds

@@ -12,7 +12,7 @@
 #endif
 
 
-Version::Version(BitcoinDCompact valIn) noexcept
+Version::Version(PalladiumDCompact valIn) noexcept
 {
     const unsigned val = static_cast<unsigned>(valIn);
     // e.g. 0.20.6 comes in like this from bitcoind (as an unsigned int): 200600
@@ -131,19 +131,19 @@ namespace {
             const Version ver(inp);
             CHK_EQ(ver.toString(), vstr1);
             CHK_EQ(ver.toString(true), vstr2);
-            CHK_EQ(ver.toString(true), Version(Version::BitcoinDCompact(num)).toString(true));
+            CHK_EQ(ver.toString(true), Version(Version::PalladiumDCompact(num)).toString(true));
             // test implicit conversion
-            CHK(Version(Version::BitcoinDCompact(num)) == Version::BitcoinDCompact(num));
-            const Version v2 = Version::BitcoinDCompact(ver.toCompact());
+            CHK(Version(Version::PalladiumDCompact(num)) == Version::PalladiumDCompact(num));
+            const Version v2 = Version::PalladiumDCompact(ver.toCompact());
             CHK(v2 == ver);
             // test operators
-            CHK(ver < Version::BitcoinDCompact(num + 101));
-            CHK(Version(Version::BitcoinDCompact(num + 203) )> ver);
-            CHK(ver == Version(Version::BitcoinDCompact(num)));
-            CHK(ver == Version::BitcoinDCompact(Version(Version::BitcoinDCompact(num)).toCompact())); // round trip to compact and back
-            CHK(ver >= Version::BitcoinDCompact(num));
-            if (num > 100) CHK(ver > Version::BitcoinDCompact(num - 100));
-            CHK(ver <= Version::BitcoinDCompact(num + 2000000));
+            CHK(ver < Version::PalladiumDCompact(num + 101));
+            CHK(Version(Version::PalladiumDCompact(num + 203) )> ver);
+            CHK(ver == Version(Version::PalladiumDCompact(num)));
+            CHK(ver == Version::PalladiumDCompact(Version(Version::PalladiumDCompact(num)).toCompact())); // round trip to compact and back
+            CHK(ver >= Version::PalladiumDCompact(num));
+            if (num > 100) CHK(ver > Version::PalladiumDCompact(num - 100));
+            CHK(ver <= Version::PalladiumDCompact(num + 2000000));
             // check .isValid
             CHK(ver.isValid() == bool(num));
             // check .toCompact
@@ -161,7 +161,7 @@ namespace {
         v = Version("overflow/23.201.76ggg");
         CHK_EQ(v.toString(), "23.201.76");
         // however, the compact repr can't represent the above
-        CHK(Version("23.201.76") != Version::BitcoinDCompact(v.toCompact()));
+        CHK(Version("23.201.76") != Version::PalladiumDCompact(v.toCompact()));
         // test the toCompact overflow
         CHK(Version("23.201.76.1").toCompact() == 25017600u);
         // once more for sanity

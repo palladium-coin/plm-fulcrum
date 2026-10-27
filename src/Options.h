@@ -18,7 +18,7 @@
 //
 #pragma once
 
-#include "BitcoinD_RPCInfo.h"
+#include "PalladiumD_RPCInfo.h"
 #include "Util.h"
 
 #include <QtGlobal>
@@ -89,7 +89,7 @@ public:
         std::optional<CertInfo> wssCertInfo;
     };
     AtomicStruct<Certs> certs; ///< gets writeen-to at App init and also by the SSLCertMonitor
-    BitcoinD_RPCInfo bdRPCInfo; ///< contains: rpcs user, rpc pass, host, port, and usesTls (see BitcoinD_RPCInfo.h)
+    PalladiumD_RPCInfo bdRPCInfo; ///< contains: rpcs user, rpc pass, host, port, and usesTls (see PalladiumD_RPCInfo.h)
     QString datadir; ///< The directory to store the database. It exists and has appropriate permissions (otherwise the app would have quit on startup).
     /// If > 0, on db open/startup, we will perform some slow/paranoid db consistency checks
     /// If 2, we do reverse-shunspent checks as well (even slower)
@@ -171,7 +171,7 @@ public:
     static constexpr int defaultBDReqHi = 50, defaultBDReqLo = 20, defaultBDReqDecayPerSec = 5;
     static constexpr int maxBDReqHi = 10'000, maxBDReqLo = 9999, maxBDReqDecayPerSec = 9999;
     static constexpr int minBDReqHi = 5, minBDReqLo = 1, minBDReqDecayPerSec = 1;
-    /// BitcoinD Request throttling params, per client
+    /// PalladiumD Request throttling params, per client
     /// See Server.cpp, generic_async_to_bitcoind for how these are used.
     struct BdReqThrottleParams {
         int hi = defaultBDReqHi,             ///< hi - hi water mark (threshold), PAUSE client processing
@@ -238,15 +238,15 @@ public:
 
     // CLI: --bd-timeout, config: palladiumd_timeout
     /// These values are all in milliseconds but the incoming variable from the user is expressed as a double in seconds.
-    /// Note that bitcoind requests originating from clients all use BitcoinDMgr::kDefaultTimeoutMS regardless of this value.
+    /// Note that bitcoind requests originating from clients all use PalladiumDMgr::kDefaultTimeoutMS regardless of this value.
     /// This setting is only for bitcoind requests originating from the Controller class.
     static constexpr int defaultBdTimeout = 30'000, // msec
                          bdTimeoutMax = 600'000, bdTimeoutMin = 5'000;
     static constexpr bool isBdTimeoutInRange(int msec) { return msec >= bdTimeoutMin && msec <= bdTimeoutMax; }
-    int bdTimeoutMS = defaultBdTimeout; ///< the amount of time to wait for BitcoinD requests originating from Controller.cpp
+    int bdTimeoutMS = defaultBdTimeout; ///< the amount of time to wait for PalladiumD requests originating from Controller.cpp
 
     // CLI: --bd-clients, config: palladiumd_clients
-    /// Corresponds to the number of BitcoinD clients that we spawn. Ideally bitcoind itself also has
+    /// Corresponds to the number of PalladiumD clients that we spawn. Ideally bitcoind itself also has
     /// -rpcthreads=1+bdNClients, and a sufficiently large -rpcworkqueue= as well.
     static constexpr unsigned defaultBdNClients = 3, bdNClientsMax = 1024, bdNClientsMin = 1;
     static constexpr bool isBdNClientsInRange(unsigned n) { return n >= bdNClientsMin && n <= bdNClientsMax; }

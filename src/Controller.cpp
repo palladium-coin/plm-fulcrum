@@ -89,7 +89,7 @@ void Controller::startup()
         coinType.store(ctype, std::memory_order_relaxed);
         if (ctype != BTC::Coin::Unknown) {
             bitcoin::SetCurrencyUnit(coin.toStdString());
-            didReceiveCoinDetectionFromBitcoinDMgr.store(true, std::memory_order_relaxed); // latch this to true now so we don't stall waiting for bitcoind to tell us our "Coin" before we do synching, because we know our coin already!
+            didReceiveCoinDetectionFromPalladiumDMgr.store(true, std::memory_order_relaxed); // latch this to true now so we don't stall waiting for bitcoind to tell us our "Coin" before we do synching, because we know our coin already!
         }
     }
 
@@ -98,25 +98,25 @@ void Controller::startup()
         // this may take a long time but normally this branch is not taken
         dumpScriptHashes(options->dumpScriptHashes);
 
-    bitcoindmgr = std::make_shared<BitcoinDMgr>(options->bdNClients, options->bdRPCInfo);
+    bitcoindmgr = std::make_shared<PalladiumDMgr>(options->bdNClients, options->bdRPCInfo);
     {
         auto constexpr waitTimer = "wait4bitcoind", callProcessTimer = "callProcess";
         int constexpr msgPeriod = 10000, // 10sec
                       smallDelay = 100;
 
         // some setup code that waits for bitcoind to be ready before kicking off our "process" method
-        auto waitForBitcoinD = [this] {
+        auto waitForPalladiumD = [this] {
             lostConn = true;
             stopTimer(pollTimerName);
             stopTimer(callProcessTimer);
             callOnTimerSoon(msgPeriod, waitTimer, []{ Log("Waiting for palladiumd..."); return true; }, false, Qt::TimerType::VeryCoarseTimer);
         };
-        waitForBitcoinD();
-        conns += connect(bitcoindmgr.get(), &BitcoinDMgr::coinDetected, this, &Controller::on_coinDetected,
+        waitForPalladiumD();
+        conns += connect(bitcoindmgr.get(), &PalladiumDMgr::coinDetected, this, &Controller::on_coinDetected,
                          /* NOTE --> */ Qt::DirectConnection);
-        conns += connect(bitcoindmgr.get(), &BitcoinDMgr::allConnectionsLost, this, waitForBitcoinD);
-        conns += connect(bitcoindmgr.get(), &BitcoinDMgr::allConnectionsLost, this, [this]{ zmqStopAll(); });
-        conns += connect(bitcoindmgr.get(), &BitcoinDMgr::gotFirstGoodConnection, this, [this](quint64 id) {
+        conns += connect(bitcoindmgr.get(), &PalladiumDMgr::allConnectionsLost, this, waitForPalladiumD);
+        conns += connect(bitcoindmgr.get(), &PalladiumDMgr::allConnectionsLost, this, [this]{ zmqStopAll(); });
+        conns += connect(bitcoindmgr.get(), &PalladiumDMgr::gotFirstGoodConnection, this, [this](quint64 id) {
             // connection to kick off our 'process' method once the first auth is received
             if (lostConn) {
                 lostConn = false;
@@ -131,7 +131,7 @@ void Controller::startup()
             }
         });
 
-        conns += connect(bitcoindmgr.get(), &BitcoinDMgr::zmqNotificationsChanged, this, [this](BitcoinDZmqNotifications bdzmqs) {
+        conns += connect(bitcoindmgr.get(), &PalladiumDMgr::zmqNotificationsChanged, this, [this](PalladiumDZmqNotifications bdzmqs) {
             // NB: this only fires if ZmqSubNotifier::isAvailable() == true
             using enum ZmqTopic::Tag;
             for (const auto topic : zmqs.allTopics) {
@@ -159,7 +159,7 @@ void Controller::startup()
             }
         });
 
-        conns += connect(bitcoindmgr.get(), &BitcoinDMgr::inWarmUp, this, [last = -1.0](const QString &msg) mutable {
+        conns += connect(bitcoindmgr.get(), &PalladiumDMgr::inWarmUp, this, [last = -1.0](const QString &msg) mutable {
             // just print a message to the log as to why we keep dropping conn. -- if bitcoind is still warming up
             auto now = Util::getTimeSecs();
             if (now-last >= 1.0) { // throttled to not spam log
@@ -169,7 +169,7 @@ void Controller::startup()
         });
 
         // notify the bitcoind mgr when we enter/exit block download phase so that it treats connections differently
-        conns += connect(this, &Controller::downloadingBlocks, bitcoindmgr.get(), &BitcoinDMgr::inBlockDownload);
+        conns += connect(this, &Controller::downloadingBlocks, bitcoindmgr.get(), &PalladiumDMgr::inBlockDownload);
     }
 
     bitcoindmgr->startup(); // may throw
@@ -205,7 +205,7 @@ void Controller::startup()
             // connect the header subscribe signal
             conns += connect(this, &Controller::newHeader, srvmgr.get(), &SrvMgr::newHeader);
 
-            // If BitcoinDMgr told us about a ZMQ notification address for a topic we care about, start the ZMQ notifier
+            // If PalladiumDMgr told us about a ZMQ notification address for a topic we care about, start the ZMQ notifier
             // (this does not happen if no ZMQ enabled at compile-time)
             zmqStartAllKnown();
         }
@@ -265,7 +265,7 @@ void Controller::startup()
             }, false, Qt::TimerType::VeryCoarseTimer);
         });
         conns += connect(this, &Controller::synchronizing, this, [this]{ stopTimer(mempoolLogTimer);});
-        conns += connect(bitcoindmgr.get(), &BitcoinDMgr::allConnectionsLost, this, [this]{ stopTimer(mempoolLogTimer);});
+        conns += connect(bitcoindmgr.get(), &PalladiumDMgr::allConnectionsLost, this, [this]{ stopTimer(mempoolLogTimer);});
     }
 
     {
@@ -301,7 +301,7 @@ void Controller::on_coinDetected(const BTC::Coin detectedtype)
 {
     // NOTE: This runs in the bitcoindmgr thread, and not in our thread. Any operations here should bear that in mind
     // and not touch any local class variables that are not guarded by a lock and/or are not atomic.
-    didReceiveCoinDetectionFromBitcoinDMgr.store(true, std::memory_order_relaxed);
+    didReceiveCoinDetectionFromPalladiumDMgr.store(true, std::memory_order_relaxed);
     const auto ourtype = coinType.load(std::memory_order_relaxed);
     if (ourtype == BTC::Coin::Unknown) {
         // We had no coin set in DB, but we just detected the coin, set it now and return.
@@ -329,7 +329,7 @@ void Controller::cleanup()
     tasks.clear(); // deletes all tasks asap
     zmqStopAll(true); // Stop ZMQ notifiers
     if (srvmgr) { Log("Stopping SrvMgr ... "); srvmgr->cleanup(); srvmgr.reset(); }
-    if (bitcoindmgr) { Log("Stopping BitcoinDMgr ... "); bitcoindmgr->cleanup(); bitcoindmgr.reset(); }
+    if (bitcoindmgr) { Log("Stopping PalladiumDMgr ... "); bitcoindmgr->cleanup(); bitcoindmgr.reset(); }
     if (storage) { Log("Closing storage ..."); storage->cleanup(); storage.reset(); }
     sm.reset();
 }
@@ -446,7 +446,7 @@ QString ChainInfo::toString() const
 
 struct DownloadBlocksTask : CtlTask
 {
-    DownloadBlocksTask(unsigned from, unsigned to, unsigned stride, unsigned numBitcoinDClients, Controller *ctl);
+    DownloadBlocksTask(unsigned from, unsigned to, unsigned stride, unsigned numPalladiumDClients, Controller *ctl);
     ~DownloadBlocksTask() override { stop(); } // paranoia
     void process() override final;
 
@@ -457,7 +457,7 @@ struct DownloadBlocksTask : CtlTask
     const bool TRACE = Trace::isEnabled();
 
     int q_ct = 0;
-    const int max_q; // todo: tune this, for now it is numBitcoinDClients + 1
+    const int max_q; // todo: tune this, for now it is numPalladiumDClients + 1
 
     static constexpr int HEADER_SIZE = BTC::GetBlockHeaderSize();
 
@@ -638,7 +638,7 @@ struct Controller::StateMachine
     enum State : uint8_t {
         Begin=0, WaitingForChainInfo,
         GetBlocks, DownloadingBlocks, FinishedDL, // regular full synch forward, PreProcessedBlockPtr instances created in dlResults table
-        End, Failure, BitcoinDIsInHeaderDL,
+        End, Failure, PalladiumDIsInHeaderDL,
         Retry, RetryInIBD,
         SynchMempool, SynchingMempool, SynchMempoolFinished,
     };
@@ -663,7 +663,7 @@ struct Controller::StateMachine
     const char * stateStr() const {
         static constexpr const char *stateStrings[] = { "Begin", "WaitingForChainInfo",
                                                         "GetBlocks", "DownloadingBlocks", "FinishedDL",
-                                                        "End", "Failure", "BitcoinDIsInHeaderDL", "Retry", "RetryInIBD",
+                                                        "End", "Failure", "PalladiumDIsInHeaderDL", "Retry", "RetryInIBD",
                                                         "SynchMempool", "SynchingMempool", "SynchMempoolFinished",
                                                         "Unknown" /* this should always be last */ };
         auto idx = qMin(size_t(state), std::size(stateStrings)-1);
@@ -728,7 +728,7 @@ CtlTask * Controller::add_DLBlocksTask(unsigned int from, unsigned int to, size_
 {
     DownloadBlocksTask *t = newTask<DownloadBlocksTask>(false, unsigned(from), unsigned(to), unsigned(nTasks),
                                                         options->bdNClients, this);
-    // notify BitcoinDMgr that we are in a block download when the first task starts
+    // notify PalladiumDMgr that we are in a block download when the first task starts
     connect(t, &CtlTask::started, this, [this]{
         const auto nTasksExtant = ++nDLBlocksTasks;
         if (nTasksExtant == 1) emit downloadingBlocks(true);
@@ -802,7 +802,7 @@ void Controller::process(bool beSilentIfUpToDate)
     }
     using State = StateMachine::State;
     if (sm->state == State::Begin) {
-        if (not didReceiveCoinDetectionFromBitcoinDMgr.load(std::memory_order_relaxed)) [[unlikely]] {
+        if (not didReceiveCoinDetectionFromPalladiumDMgr.load(std::memory_order_relaxed)) [[unlikely]] {
             // If we never once got told definitively what "Coin" we are on by bitcoind, then a race condition
             // can exist between our synch and coin detection. Since it's
             // generally a bad idea anyway to begin a synch without knowing if we are on BTC (SegWit
@@ -810,7 +810,7 @@ void Controller::process(bool beSilentIfUpToDate)
             // what coin we are on. Note that this branch is extremely unlikely and is only here for paranoia.
             Warning() << "This instance has not yet received any information from palladiumd as to what coin we are"
                          " on, aborting synch task (will retry later) ...";
-            bitcoindmgr->requestBitcoinDInfoRefresh(); // give bitcoind a nudge and issue the RPC again
+            bitcoindmgr->requestPalladiumDInfoRefresh(); // give bitcoind a nudge and issue the RPC again
             genericTaskErrored();
             return;
         }
@@ -826,14 +826,14 @@ void Controller::process(bool beSilentIfUpToDate)
             sm->mostRecentGetChainInfoTask = nullptr;
             if (task->info.blocks < 1 && task->info.initialBlockDownload) {
                 // we assume if height is still below 1, and if the ibd flag is set, that we are still synching initial
-                // headers, so we mark the state as "BitcoinDIsInHeaderDL", which will retry in 5 seconds
-                sm->state = State::BitcoinDIsInHeaderDL;
+                // headers, so we mark the state as "PalladiumDIsInHeaderDL", which will retry in 5 seconds
+                sm->state = State::PalladiumDIsInHeaderDL;
                 AGAIN();
                 return;
             }
 
             // Ensure genesis hash matches what we have in DB (post-initial sync only)
-            if (const auto hashDaemon = bitcoindmgr->getBitcoinDGenesisHash(), hashDb = storage->genesisHash();
+            if (const auto hashDaemon = bitcoindmgr->getPalladiumDGenesisHash(), hashDb = storage->genesisHash();
                     !hashDb.isEmpty() && !hashDaemon.isEmpty() && hashDb != hashDaemon) {
                 Fatal() << "Palladiumd reports genesis hash: \"" << hashDaemon.toHex() << "\", which differs from our "
                         << "database: \"" << hashDb.toHex() << "\". You may have connected to the wrong palladiumd. "
@@ -1018,7 +1018,7 @@ void Controller::process(bool beSilentIfUpToDate)
             sm.reset();  // great success!
         }
         enablePollTimer = true;
-    } else if (sm->state == State::BitcoinDIsInHeaderDL) {
+    } else if (sm->state == State::PalladiumDIsInHeaderDL) {
         {
             std::lock_guard g(smLock);
             sm.reset();  // great success!
@@ -1293,7 +1293,7 @@ quint64 CtlTask::submitRequest(const QString &method, const QVariantList &params
                                const ErrorF &errorFunc)
 {
     quint64 id = IdMixin::newId();
-    using ErrorF = BitcoinDMgr::ErrorF;
+    using ErrorF = PalladiumDMgr::ErrorF;
     using MsgCRef = const RPC::Message &;
     ctl->bitcoindmgr->submitRequest(this, id, method, params,
                                     resultsFunc,
@@ -1313,7 +1313,7 @@ auto Controller::stats() const -> Stats
     // "Servers"
     auto st = QVariantMap{{ "Server Manager", srvmgr ? srvmgr->statsSafe() : QVariant() }};
 
-    // "BitcoinD's"
+    // "PalladiumD's"
     st["Bitcoin Daemon"] = bitcoindmgr->statsSafe();
 
     // "Controller" (self)

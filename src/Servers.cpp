@@ -19,7 +19,7 @@
 #include "Servers.h"
 
 #include "App.h"
-#include "BitcoinD.h"
+#include "PalladiumD.h"
 #include "BTC.h"
 #include "BTC_Address.h"
 #include "Compat.h"
@@ -326,7 +326,7 @@ namespace {
         return ret;
     }
 
-    QString formatBitcoinDErrorResponseToLookLikeDumbElectrumXPythonRepr(const RPC::Message &errResponse){
+    QString formatPalladiumDErrorResponseToLookLikeDumbElectrumXPythonRepr(const RPC::Message &errResponse){
         constexpr auto escapeSingleQuote = [](const QString &s) -> QString {
             const QByteArray b = s.toUtf8();
             QByteArray ret;
@@ -368,7 +368,7 @@ namespace {
 ServerBase::ServerBase(SrvMgr *sm,
                        const RPC::MethodMap & methods, const DispatchTable & dispatchTable,
                        const QHostAddress & a, quint16 p, const std::shared_ptr<const Options> & opts,
-                       const std::shared_ptr<Storage> & st, const std::shared_ptr<BitcoinDMgr> & bdm)
+                       const std::shared_ptr<Storage> & st, const std::shared_ptr<PalladiumDMgr> & bdm)
     : AbstractTcpServer(a, p), srvmgr(sm), methods(methods), dispatchTable(dispatchTable), options(opts), storage(st), bitcoindmgr(bdm)
 {
     if (!options || !storage || !bitcoindmgr)
@@ -734,7 +734,7 @@ namespace {
             emit c->sendError(false, RPC::Code_InternalError, QString("internal error: %1").arg(what), batchId, id);
         };
     }
-    BitcoinDMgr::FailF defaultBDFailFunc(Client *c, RPC::BatchId batchId, const RPC::Message::Id &id) {
+    PalladiumDMgr::FailF defaultBDFailFunc(Client *c, RPC::BatchId batchId, const RPC::Message::Id &id) {
         return [c, batchId, id](const RPC::Message::Id &, const QString &what) {
             c->bdReqCtr -= std::min(c->bdReqCtr, 1LL); // decrease throttle counter (per-client, owned by this thread)
             --c->perIPData->bdReqCtr; // decrease bitcoind request counter (per-IP, owned by multiple threads)
@@ -830,8 +830,8 @@ void ServerBase::generic_do_async(Client *c, RPC::BatchId batchId, const RPC::Me
 void ServerBase::generic_async_to_bitcoind(Client *c, const RPC::BatchId batchId, const RPC::Message::Id & reqId,
                                            const QString &method,
                                            const QVariantList & params,
-                                           const BitcoinDSuccessFunc & successFunc,
-                                           const BitcoinDErrorFunc & errorFunc,
+                                           const PalladiumDSuccessFunc & successFunc,
+                                           const PalladiumDErrorFunc & errorFunc,
                                            std::optional<int> useCacheIfNotOlderThan)
 {
     if (QThread::currentThread() != c->thread()) [[unlikely]] {
@@ -911,14 +911,14 @@ void ServerBase::generic_async_to_bitcoind(Client *c, const RPC::BatchId batchId
         // use default function on failure, sends json rpc error "internal error: <message>"
         defaultBDFailFunc(c, batchId, reqId),
         // timeout
-        BitcoinDMgr::kDefaultTimeoutMS,
+        PalladiumDMgr::kDefaultTimeoutMS,
         // optional response caching control
         useCacheIfNotOlderThan
     );
 }
 
 Server::Server(SrvMgr *sm, const QHostAddress &a, quint16 p, const std::shared_ptr<const Options> & opts,
-               const std::shared_ptr<Storage> &s, const std::shared_ptr<BitcoinDMgr> &bdm)
+               const std::shared_ptr<Storage> &s, const std::shared_ptr<PalladiumDMgr> &bdm)
     : ServerBase(sm, StaticData::methodMap, StaticData::dispatchTable, a, p, opts, s, bdm)
 {
     StaticData::init(); // only does something first time it's called, otherwise a no-op
@@ -1044,7 +1044,7 @@ void Server::rpc_server_banner(Client *c, const RPC::BatchId batchId, const RPC:
         emit c->sendResult(batchId, m.id, bannerFallback);
     } else {
         // banner file specified, now let's open it up in a worker thread to keep the server responsive and return immediately
-        const auto bitcoinDInfo = bitcoindmgr->getBitcoinDInfo();
+        const auto bitcoinDInfo = bitcoindmgr->getPalladiumDInfo();
         generic_do_async(c, batchId, m.id,
                         [bannerFile,
                          donationAddress = options->donationAddress,
@@ -1487,8 +1487,8 @@ void Server::impl_blockchain_header_get(Client *c, const RPC::BatchId batchId, c
 void Server::rpc_blockchain_relayfee(Client *c, const RPC::BatchId batchId, const RPC::Message &m)
 {
     // This value never changes unless bitcoind is restarted, in which case we will pick up the new value when it comes
-    // back. See: BitcoinDMgr::refreshBitcoinDNetworkInfo()
-    emit c->sendResult(batchId, m.id, bitcoindmgr->getBitcoinDInfo().relayFee);
+    // back. See: PalladiumDMgr::refreshPalladiumDNetworkInfo()
+    emit c->sendResult(batchId, m.id, bitcoindmgr->getPalladiumDInfo().relayFee);
 }
 
 // ---- The below three methods are used by both the blockchain.scripthash.* and blockchain.address.* sets of methods
@@ -1999,12 +1999,12 @@ void Server::rpc_blockchain_transaction_get(Client *c, const RPC::BatchId batchI
     }
     generic_async_to_bitcoind(c, batchId, m.id, "getrawtransaction", QVariantList{ Util::ToHexFast(txHash), verbose },
         // use the default success func, which just echoes the bitcoind reply to the client
-        BitcoinDSuccessFunc(),
+        PalladiumDSuccessFunc(),
         // error func, throw an RPCError
         [](const RPC::Message & errResponse) {
             // EX does this weird thing.. we do it too for now until we can verify not doing it won't break old EC
             // clients... TODO: see if this can be removed in favor of a more canonical error message.
-            throw RPCError(formatBitcoinDErrorResponseToLookLikeDumbElectrumXPythonRepr(errResponse),
+            throw RPCError(formatPalladiumDErrorResponseToLookLikeDumbElectrumXPythonRepr(errResponse),
                            RPC::Code_App_DaemonError);
         }
     );
@@ -2234,7 +2234,7 @@ void Server::rpc_mempool_get_info(Client *c, const RPC::BatchId batchId, const R
                 if (m.contains(key)) ret[key] = m.value(key);
             return ret;
         },
-        BitcoinDErrorFunc{},
+        PalladiumDErrorFunc{},
         kMempoolInfoStaleThreshMS
     );
 }
@@ -2366,7 +2366,7 @@ void Server::StaticData::init() { InitStaticDataCommon(dispatchTable, methodMap,
 
 // --- SSL Server support ---
 ServerSSL::ServerSSL(SrvMgr *sm, const QHostAddress & address_, quint16 port_, const std::shared_ptr<const Options> & opts,
-                     const std::shared_ptr<Storage> & storage_, const std::shared_ptr<BitcoinDMgr> & bitcoindmgr_)
+                     const std::shared_ptr<Storage> & storage_, const std::shared_ptr<PalladiumDMgr> & bitcoindmgr_)
     : Server(sm, address_, port_, opts, storage_, bitcoindmgr_)
 {
     setupSslConfiguration();
@@ -2492,7 +2492,7 @@ void ServerSSL::incomingConnection(qintptr socketDescriptor)
 
 // --- Admin RPC Serer ---
 AdminServer::AdminServer(SrvMgr *sm, const QHostAddress & a, quint16 p, const std::shared_ptr<const Options> & o,
-                         const std::shared_ptr<Storage> & s, const std::shared_ptr<BitcoinDMgr> & bdm,
+                         const std::shared_ptr<Storage> & s, const std::shared_ptr<PalladiumDMgr> & bdm,
                          const std::weak_ptr<PeerMgr> & pm)
     : ServerBase(sm, StaticData::methodMap, StaticData::dispatchTable, a, p, o, s, bdm), peerMgr(pm)
 {
@@ -2648,7 +2648,7 @@ void AdminServer::rpc_getinfo(Client *c, const RPC::BatchId batchId, const RPC::
 {
     QVariantMap res;
     res["palladiumd"] = QString("%1:%2").arg(options->bdRPCInfo.hostPort.first, QString::number(options->bdRPCInfo.hostPort.second));
-    res["palladiumd_info"] = bitcoindmgr->getBitcoinDInfo().toVariantMap();
+    res["palladiumd_info"] = bitcoindmgr->getPalladiumDInfo().toVariantMap();
     {
         const auto opt = storage->latestHeight();
         res["height"] = opt.has_value() ? *opt : QVariant();

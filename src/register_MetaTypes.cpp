@@ -18,7 +18,7 @@
 //
 #include "App.h"
 #include "BlockProc.h"
-#include "BitcoinD.h"
+#include "PalladiumD.h"
 #include "BTC.h"
 #include "BTC_Address.h"
 #include "Controller.h"
@@ -57,7 +57,7 @@ void App::register_MetaTypes()
         qRegisterMetaType<BTC::Address>("BTC::Address");
         qRegisterMetaType<BTC::Coin>("BTC::Coin");
 
-        qRegisterMetaType<BitcoinDZmqNotifications>("BitcoinDZmqNotifications");
+        qRegisterMetaType<PalladiumDZmqNotifications>("PalladiumDZmqNotifications");
 
         qRegisterMetaType<SubStatus>("SubStatus");
 

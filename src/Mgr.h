@@ -23,7 +23,7 @@
 #include <QObject>
 #include <QVariantMap>
 
-/// Abstract base class of all subsystem controllers such as SrvMgr, BitcoinDMgr, etc.
+/// Abstract base class of all subsystem controllers such as SrvMgr, PalladiumDMgr, etc.
 /// These get created by the App on startup, based on config.
 class Mgr : public QObject, public StatsMixin
 {

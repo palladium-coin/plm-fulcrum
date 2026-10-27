@@ -17,7 +17,7 @@
 // <https://www.gnu.org/licenses/>.
 //
 
-#include "BitcoinD_RPCInfo.h"
+#include "PalladiumD_RPCInfo.h"
 #include "Common.h"
 #include "Util.h"
 
@@ -27,20 +27,20 @@
 #include <cctype> // for std::isspace
 #include <tuple>  // for std::tie
 
-void BitcoinD_RPCInfo::setCookieFile(const QString &file)
+void PalladiumD_RPCInfo::setCookieFile(const QString &file)
 {
     if (file.isEmpty()) throw BadArgs("palladiumd cookie file cannot be the empty string");
     user.clear(), pass.clear();
     cookieFile = file;
 }
 
-void BitcoinD_RPCInfo::setStaticUserPass(const QString &u, const QString &p)
+void PalladiumD_RPCInfo::setStaticUserPass(const QString &u, const QString &p)
 {
     cookieFile.clear();
     std::tie(user, pass) = std::tie(u, p);
 }
 
-QPair<QString, QString> BitcoinD_RPCInfo::getUserPass() const
+QPair<QString, QString> PalladiumD_RPCInfo::getUserPass() const
 {
     QPair<QString, QString> ret;
 
