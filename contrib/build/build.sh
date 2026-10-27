@@ -14,7 +14,7 @@ fi
 plat="$1"
 
 if [ -z "$2" ]; then
-    info "Please pass a tag, a branch, or a commit hash to this script as the second argument, e.g. \"master\", \"v1.0.6\", etc ..."
+    info "Please pass a tag, a branch, or a commit hash to this script as the second argument, e.g. \"main\", \"v1.0.6\", etc ..."
     exit 1
 fi
 tag="$2"

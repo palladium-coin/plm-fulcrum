@@ -1,5 +1,5 @@
 [Unit]
-Description=Fulcrum SPV server for Bitcoin Cash
+Description=plm-fulcrum SPV server for Palladium (PLM)
 
 [Service]
 Type=simple

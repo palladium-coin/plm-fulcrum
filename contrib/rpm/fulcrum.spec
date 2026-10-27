@@ -1,10 +1,10 @@
 Name:    {{{ git_repo_name name="fulcrum" }}}
-Version: 2.1.4
+Version: 0.1.0
 Release: {{{ git_repo_version }}}%{?dist}
-Summary: A fast & nimble SPV server for Bitcoin Cash & Bitcoin BTC
+Summary: A fast & nimble SPV server for Palladium (PLM)
 
 License:    GPLv3
-URL:        https://github.com/cculianu/Fulcrum
+URL:        ssh://git@santantonio.sytes.net:2223/davide/plm-fulcrum
 VCS:        {{{ git_repo_vcs }}}
 
 Source:     {{{ GIT_DIRTY=1 git_repo_pack }}}
@@ -28,7 +28,7 @@ BuildRequires: systemd systemd-rpm-macros
 %{summary}.
 
 %package admin
-Summary: Includes admin tool for fulcrum
+Summary: A fast & nimble SPV server for Palladium (PLM)
 
 %description admin
 %{summary}.
@@ -58,7 +58,7 @@ install -Dm 755 FulcrumAdmin %{buildroot}/%{_bindir}/fulcrum-admin
 getent group fulcrum >/dev/null || groupadd -r fulcrum
 getent passwd fulcrum >/dev/null || \
     useradd -r -g fulcrum -d %{_sharedstatedir}/fulcrum -s /sbin/nologin \
-    -c "Fulcrum SPV server for Bitcoin Cash" fulcrum
+    -c "plm-fulcrum SPV server for Palladium (PLM)" fulcrum
 exit 0
 
 %post
