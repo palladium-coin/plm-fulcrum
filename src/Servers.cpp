@@ -986,13 +986,6 @@ void Server::rpc_server_add_peer(Client *c, const RPC::BatchId batchId, const RP
 }
 
 namespace {
-    // The default donation address is the upstream author's BCH address, which is meaningless on PLM; we return an
-    // empty string unless the admin configured their own `donation=`.
-    QString transformDefaultDonationAddress(const Options &options)
-    {
-        return options.isDefaultDonationAddress ? QString{} : options.donationAddress;
-    }
-
     QString performVariableSubstitutionsForBannerFile(QString && s, const QString::size_type maxBannerData,
                                                       const QString & donationAddress, const Version & daemonVersion,
                                                       const QString & daemonSubversion)
@@ -1054,7 +1047,7 @@ void Server::rpc_server_banner(Client *c, const RPC::BatchId batchId, const RPC:
         const auto bitcoinDInfo = bitcoindmgr->getBitcoinDInfo();
         generic_do_async(c, batchId, m.id,
                         [bannerFile,
-                         donationAddress = transformDefaultDonationAddress(*options),
+                         donationAddress = options->donationAddress,
                          daemonVersion = bitcoinDInfo.version,
                          daemonSubversion = bitcoinDInfo.subversion] {
                 QVariant ret;
@@ -1077,7 +1070,7 @@ void Server::rpc_server_banner(Client *c, const RPC::BatchId batchId, const RPC:
 }
 void Server::rpc_server_donation_address(Client *c, const RPC::BatchId batchId, const RPC::Message &m)
 {
-    emit c->sendResult(batchId, m.id, transformDefaultDonationAddress(*options));
+    emit c->sendResult(batchId, m.id, options->donationAddress);
 }
 /* static */
 QVariantMap Server::makeFeaturesDictForConnection(AbstractConnection *c, const QByteArray &genesisHash, const Options &opts)

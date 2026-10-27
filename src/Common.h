@@ -56,8 +56,8 @@ struct Exception : std::runtime_error
 struct InternalError : Exception { using Exception::Exception; ~InternalError() override; };
 struct BadArgs : Exception { using Exception::Exception; ~BadArgs() override; };
 
-#define APPNAME "Fulcrum"
-#define VERSION "2.1.4"
+#define APPNAME "plm-fulcrum"
+#define VERSION "0.1.0"
 #ifdef QT_DEBUG
 inline constexpr bool isReleaseBuild() { return false; }
 #else

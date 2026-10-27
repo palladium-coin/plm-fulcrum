@@ -392,7 +392,7 @@ App::LatchFile::~LatchFile()
 void App::parseArgs()
 {
     QCommandLineParser parser;
-    parser.setApplicationDescription("A Bitcoin Cash, Bitcoin BTC, and Palladium Blockchain SPV Server");
+    parser.setApplicationDescription("A Palladium (PLM) SPV server");
     parser.addHelpOption();
 
     static constexpr auto RPCUSER = "RPCUSER", RPCPASSWORD = "RPCPASSWORD"; // optional env vars we use below
@@ -478,19 +478,17 @@ void App::parseArgs()
     },
     { { "b", "bitcoind" },
        QString("Specify a <hostname:port> to connect to the bitcoind rpc service. This is a required option, along"
-       " with -u and -p. This hostname:port should be the same as you specified in your bitcoin.conf file"
+       " with -u and -p. This hostname:port should be the same as you specified in your palladium.conf file"
        " under rpcbind= and rpcport=.\n"),
        QString("hostname:port"),
     },
     { "bitcoind-tls",
-       QString("If specified, connect to the remote bitcoind via HTTPS rather than the usual HTTP. Historically,"
-               " bitcoind supported only JSON-RPC over HTTP; however, some implementations such as bchd support"
-               " HTTPS. If you are using " APPNAME " with bchd, you either need to start bchd with the `notls`"
-               " option, or you need to specify this option to " APPNAME ".\n"),
+       QString("If specified, connect to the remote bitcoind via HTTPS rather than the usual HTTP."
+               " palladiumd supports only JSON-RPC over HTTP, so this is only useful behind a TLS-terminating proxy.\n"),
     },
     { { "u", "rpcuser" },
        QString("Specify a username to use for authenticating to bitcoind."
-       " This option should be the same username you specified in your bitcoind.conf file"
+       " This option should be the same username you specified in your palladium.conf file"
        " under rpcuser=. For security, you may omit this option from the command-line and use the %1"
        " environment variable instead (the CLI arg takes precedence if both are present), or you may use -K"
        " instead.\n").arg(RPCUSER),
@@ -498,7 +496,7 @@ void App::parseArgs()
     },
     { { "p", "rpcpassword" },
        QString("Specify a password to use for authenticating to bitcoind."
-       " This option should be the same password you specified in your bitcoind.conf file"
+       " This option should be the same password you specified in your palladium.conf file"
        " under rpcpassword=. For security, you may omit this option from the command-line and use the"
        " %1 environment variable instead (the CLI arg takes precedence if both are present), or you may use -K"
        " instead.\n").arg(RPCPASSWORD),
@@ -1014,7 +1012,6 @@ void App::parseArgs()
     /// misc conf-only variables ...
     if (conf.hasValue("donation")) {
         options->donationAddress = conf.value("donation", options->donationAddress).left(80); // the 80 character limit is in case the user specified a crazy long string, no need to send all of it -- it's probably invalid anyway.
-        options->isDefaultDonationAddress = false; // turns off the auto-transform mechanism for the author's address.
     }
     options->bannerFile = conf.value("banner", options->bannerFile);
     if (conf.hasValue("hostname"))
