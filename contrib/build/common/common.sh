@@ -197,7 +197,7 @@ if [ "$GIT_REPO" != "$DEFAULT_GIT_REPO" ]; then
     info "Picked up override from env: GIT_REPO=${GIT_REPO}"
 fi
 GIT_DIR_NAME=`basename $GIT_REPO .git`
-PACKAGE=${PACKAGE:-Fulcrum}  # Modify this if you like
+PACKAGE=${PACKAGE:-plm-fulcrum}  # Modify this if you like
 
 
 SHA256_PROG=`which sha256sum || which gsha256sum`

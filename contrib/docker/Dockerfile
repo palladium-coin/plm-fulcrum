@@ -14,7 +14,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN qmake6 -makefile PREFIX=/usr Fulcrum.pro && \
+RUN qmake6 -makefile PREFIX=/usr plm-fulcrum.pro && \
     make $MAKEFLAGS install
 
 FROM debian:13.1-slim
@@ -24,19 +24,19 @@ RUN apt update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-COPY --from=builder /src/Fulcrum /usr/bin/Fulcrum
-COPY --from=builder /src/FulcrumAdmin /usr/bin/FulcrumAdmin
+COPY --from=builder /src/plm-fulcrum /usr/bin/plm-fulcrum
+COPY --from=builder /src/plm-fulcrum-admin /usr/bin/plm-fulcrum-admin
 
 VOLUME ["/data"]
 ENV LC_ALL="C.UTF-8"
 ENV DATA_DIR=/data
 
-ENV SSL_CERTFILE=${DATA_DIR}/fulcrum.crt
-ENV SSL_KEYFILE=${DATA_DIR}/fulcrum.key
+ENV SSL_CERTFILE=${DATA_DIR}/plm-fulcrum.crt
+ENV SSL_KEYFILE=${DATA_DIR}/plm-fulcrum.key
 
 EXPOSE 50001 50002
 
 COPY contrib/docker/docker-entrypoint.sh /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["Fulcrum"]
+CMD ["plm-fulcrum"]

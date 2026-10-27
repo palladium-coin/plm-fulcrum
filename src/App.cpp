@@ -462,7 +462,7 @@ void App::parseArgs()
       QString("Specify a <port> or an <interface:port> on which to listen for TCP connections for the admin RPC service."
               " The admin service is used for sending special control commands to the server, such as stopping"
               " the server, and it should *NOT* be exposed to the internet. This option is required if you wish to"
-              " use the FulcrumAdmin CLI tool to send commands to Fulcrum. It is recommended that you specify the"
+              " use the plm-fulcrum-admin CLI tool to send commands to plm-fulcrum. It is recommended that you specify the"
               " loopback address as the bind interface for this option such as: <port> by itself or 127.0.0.1:<port> for"
               " IPv4 and/or ::1:<port> for IPv6. If no interface is specified, and just a port number by itself is"
               " used, then IPv4 127.0.0.1 is the bind interface used (along with the specified port)."

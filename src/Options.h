@@ -155,7 +155,7 @@ public:
         return std::max(noClampMax ? m : std::min(m, maxBufferMax), maxBufferMin);
     }
 
-    std::atomic_int maxBuffer = defaultMaxBuffer; ///< this can be set at runtime by FulcrumAdmin as of Fulcrum 1.0.4, hence why it's an atomic.
+    std::atomic_int maxBuffer = defaultMaxBuffer; ///< this can be set at runtime by plm-fulcrum-admin as of Fulcrum 1.0.4, hence why it's an atomic.
     int maxHistory = defaultMaxHistory;
     // Work queue options as configured by user; these are the saved values from config (if any) and are not
     // necessarily the options used in practice (those can be determined by querying the Util::ThreadPool).

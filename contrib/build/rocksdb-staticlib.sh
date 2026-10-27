@@ -78,5 +78,5 @@ info "Cleaning up ..."
 cd "${topdir}"
 rm -fr "${workdir}"
 
-info "librocksdb.a has been compiled and placed in the staticlibs/ directory where Fulcrum.pro can find it."
-info "You may now run qmake against Fulcrum.pro"
+info "librocksdb.a has been compiled and placed in the staticlibs/ directory where plm-fulcrum.pro can find it."
+info "You may now run qmake against plm-fulcrum.pro"

@@ -5,4 +5,4 @@
 
 The RPM contains some macros that only rpkg understands.
 
-Fulcrum$ rpkg local --spec contrib/rpm/fulcrum.spec
+plm-fulcrum$ rpkg local --spec contrib/rpm/plm-fulcrum.spec

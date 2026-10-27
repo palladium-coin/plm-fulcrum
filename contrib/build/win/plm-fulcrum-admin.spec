@@ -3,7 +3,7 @@
 block_cipher = None
 
 
-a = Analysis(['FulcrumAdmin'],
+a = Analysis(['plm-fulcrum-admin'],
              pathex=['Z:\\tmp\\tmp'],
              binaries=[],
              datas=[],
@@ -30,7 +30,7 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           [],
-          name='FulcrumAdmin',
+          name='plm-fulcrum-admin',
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,

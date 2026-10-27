@@ -20,10 +20,10 @@ if [ -z "$version" ]; then
 fi
 
 $SED -i "/^#define VERSION .*/c\#define VERSION \"$version\"" src/Common.h
-$SED -i "/^Version: .*/c\Version: $version" contrib/rpm/fulcrum.spec
+$SED -i "/^Version: .*/c\Version: $version" contrib/rpm/plm-fulcrum.spec
 
 
 #man page
 _date=$(date '+%B %d, %Y')
-$SED -i "1s/\%.*/\% FULCRUM\(1\) Version $version \| Fulcrum Manual/" doc/unix-man-page.md
+$SED -i "1s/\%.*/\% PLM-FULCRUM\(1\) Version $version \| plm-fulcrum Manual/" doc/unix-man-page.md
 $SED -i "3s/\%.*/\% $_date/" doc/unix-man-page.md

@@ -3,9 +3,9 @@ Description=plm-fulcrum SPV server for Palladium (PLM)
 
 [Service]
 Type=simple
-User=fulcrum
+User=plm-fulcrum
 LimitNOFILE=20000:32767
-ExecStart=/usr/bin/fulcrum -S --datadir /var/lib/fulcrum /etc/fulcrum.conf
+ExecStart=/usr/bin/plm-fulcrum -S --datadir /var/lib/plm-fulcrum /etc/plm-fulcrum.conf
 
 [Install]
 WantedBy=multi-user.target

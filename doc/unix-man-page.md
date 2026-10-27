@@ -4,16 +4,16 @@
 
 # NAME
 
-**fulcrum** - A Palladium (PLM) Blockchain SPV Server
+**plm-fulcrum** - A Palladium (PLM) Blockchain SPV Server
 
 # SYNOPSIS
 
-| **fulcrum** \[options\] \[config\]
+| **plm-fulcrum** \[options\] \[config\]
 
 DESCRIPTION
 ===========
 
-`fulcrum` requires a `palladiumd` instance running either on `testnet` or `mainnet` (or `regtest` for testing), which you must tell it about via the CLI options or via the config file. You also need to tell it what port(s) to listen on and optionally what SSL certificates to use (if using SSL).
+`plm-fulcrum` requires a `palladiumd` instance running either on `testnet` or `mainnet` (or `regtest` for testing), which you must tell it about via the CLI options or via the config file. You also need to tell it what port(s) to listen on and optionally what SSL certificates to use (if using SSL).
 
 
 **NOTE:**
@@ -65,7 +65,7 @@ Once the server finishes synching it will behave like an ElectronX/ElectrumX ser
 :   Specify a private key PEM file to use for WSS. This key must go with the certificate specified in --wss-cert. If this option is specified, --wss-cert must also be specified.
 
 -a, --admin <[interface:]port>
-:   Specify a <port> or an <interface:port> on which to listen for TCP connections for the admin RPC service. The admin service is used for sending special control commands to the server, such as stopping the server, and it should *NOT* be exposed to the internet.  This option is required if you wish to use the FulcrumAdmin CLI tool to send commands to Fulcrum. It is recommended that you specify the loopback address as the bind interface for this option such as: <port> by itself or 127.0.0.1:<port> for IPv4 and/or ::1:<port> for IPv6. If no interface is specified, and just a port number by itself is used, then IPv4 127.0.0.1 is the bind interface used (along with the specified port). This option may be specified more than once to bind to multiple interfaces and/or ports.
+:   Specify a <port> or an <interface:port> on which to listen for TCP connections for the admin RPC service. The admin service is used for sending special control commands to the server, such as stopping the server, and it should *NOT* be exposed to the internet.  This option is required if you wish to use the plm-fulcrum-admin CLI tool to send commands to plm-fulcrum. It is recommended that you specify the loopback address as the bind interface for this option such as: <port> by itself or 127.0.0.1:<port> for IPv4 and/or ::1:<port> for IPv6. If no interface is specified, and just a port number by itself is used, then IPv4 127.0.0.1 is the bind interface used (along with the specified port). This option may be specified more than once to bind to multiple interfaces and/or ports.
 
 -z, --stats <[interface:]port>
 :   Specify listen address and port for the stats HTTP server. Format is same as the -s, -t or -a options, e.g.: <interface:port>. Default is to not start any starts HTTP servers.  Also, like the -a option, you may specify a port number by itself here and 127.0.0.1:<port> will be assumed. This option may be specified more than once to bind to multiple interfaces and/or ports.
@@ -139,7 +139,7 @@ Once the server finishes synching it will behave like an ElectronX/ElectrumX ser
 
 # FILES
 
-*/etc/fulcrum.conf*
+*/etc/plm-fulcrum.conf*
 
 :   Default config file when running as a service.
 

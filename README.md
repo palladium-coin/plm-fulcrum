@@ -42,16 +42,16 @@ GPLv3. See the included `LICENSE.txt` file or [visit gnu.org and read the licens
 ### Quickstart
 
 1. Build the server from source (see [How To Compile](#how-to-compile)) or with the static Docker build (see below).
-2. Verify that the binary runs on your system by executing the binary with `./Fulcrum -h` to see the CLI options.
-3. Setup a configuration file and to point Fulcrum to your `palladiumd` JSON-RPC server, specify listening ports, TLS certificates, etc.  See: [doc/fulcrum-example-config.conf](doc/fulcrum-example-config.conf) and/or [doc/fulcrum-quick-config.conf](doc/fulcrum-quick-config.conf)
-4. Also see this section below on [Running Fulcrum](#running-fulcrum).
+2. Verify that the binary runs on your system by executing the binary with `./plm-fulcrum -h` to see the CLI options.
+3. Setup a configuration file and to point plm-fulcrum to your `palladiumd` JSON-RPC server, specify listening ports, TLS certificates, etc.  See: [doc/plm-fulcrum-example-config.conf](doc/plm-fulcrum-example-config.conf) and/or [doc/plm-fulcrum-quick-config.conf](doc/plm-fulcrum-quick-config.conf)
+4. Also see this section below on [Running plm-fulcrum](#running-plm-fulcrum).
 
 ### How To Compile
 
 No pre-built binaries are published for this fork yet, so you need to compile it (or use the static Docker build below). To compile, it's recommended you use the Qt Creator IDE.
 
 1. Get the latest version of Qt Open Source Edition for your platform.
-2. Point the Qt Creator IDE at the `Fulcrum.pro` file.
+2. Point the Qt Creator IDE at the `plm-fulcrum.pro` file.
 3. Set the build configuration to "Release".  Hit Build.  It should "just work".
 
 You may also build from the CLI (on Linux and MacOS):
@@ -67,7 +67,7 @@ You may also build from the CLI (on Linux and MacOS):
 #### What to do if compiling fails
 If you have problems compiling, the most likely culprit would be your compiler not being `C++20` compliant (please use a recent version of `gcc` or `clang` on Linux, Apple's `Xcode` on Mac, or `MinGW G++ 11.x` or above on Windows).
 
-The other likely culprit is the fact that at the present time I have included a statically-built `librocksdb` in the codebase. There are versions of this library for Windows, Mac, and Linux included right in the source tree, and `Fulcrum.pro` looks for them and links to them. Instructions are included within the `Fulcrum.pro` project file about how to build your own static `librocksdb` if the bundled one does not work on your system.
+The other likely culprit is the fact that at the present time I have included a statically-built `librocksdb` in the codebase. There are versions of this library for Windows, Mac, and Linux included right in the source tree, and `plm-fulcrum.pro` looks for them and links to them. Instructions are included within the `plm-fulcrum.pro` project file about how to build your own static `librocksdb` if the bundled one does not work on your system.
 
 If you are still having trouble, file an issue in this repository.
 
@@ -88,7 +88,7 @@ Ensure that `libzmq3` (Debian/Ubuntu) and/or `zeromq-devel` (Fedora/Redhat) is i
 
 Ensure that `libminiupnpc` (Debian/Ubuntu) and/or `miniupnpc-devel` (Fedora/Redhat) is installed, and that `pkg-config` is also installed.  If on Unix (macOS, Linux, or Windows MinGW), then ideally the `qmake` step will find `libminiupnpc` on your system and automatically use it. If that is not the case, you may try passing flags to `qmake` such as `LIBS+="-L/path/to/dir_containing_libminiupnpc -lminiupnpc"` and `INCLUDEPATH+="/path/to/dir_containing_miniupnpc_headers_dir"` as arguments when you invoke `qmake`.  Using `libminiupnpc` is optional but necessary if you want UPnP support.
 
-### Building the Windows static `Fulcrum.exe`
+### Building the Windows static `plm-fulcrum.exe`
 
 There is a mechanism using Docker to build a statically-linked
 Windows `.exe`. This build is 100% compatible with any stock 64-bit Windows 7 or
@@ -108,7 +108,7 @@ As such, it may take a while so be patient.
 
 The first argument to the script is the platform to build (in this case
 `windows`). The second argument to the script is a git `branch` or `tag` to
-build. Two `.exe` files will be generated, `Fulcrum.exe` and `FulcrumAdmin.exe`,
+build. Two `.exe` files will be generated, `plm-fulcrum.exe` and `plm-fulcrum-admin.exe`,
 which will appear in `dist/win` after the build process completes.
 
 - *Note:* You can point the build script to any repository, not just this one, by giving it a `GIT_REPO` environment variable:
@@ -144,43 +144,43 @@ The first argument to the script is the platform to build (in this case
 
 ---
 
-### Running Fulcrum
+### Running plm-fulcrum
 
-Execute the binary, with `-h` to see the built-in help, e.g. `./Fulcrum -h`. You can set most options from the CLI, but you can also specify a **config file** as an argument. See:
+Execute the binary, with `-h` to see the built-in help, e.g. `./plm-fulcrum -h`. You can set most options from the CLI, but you can also specify a **config file** as an argument. See:
 
- - [doc/fulcrum-example-config.conf](doc/fulcrum-example-config.conf) in the source tree. This sample config file is very well documented with comments.
- - [doc/fulcrum-quick-config.conf](doc/fulcrum-quick-config.conf) in the source tree. This is a more abbreviated config file you can use as a starting point as well.
+ - [doc/plm-fulcrum-example-config.conf](doc/plm-fulcrum-example-config.conf) in the source tree. This sample config file is very well documented with comments.
+ - [doc/plm-fulcrum-quick-config.conf](doc/plm-fulcrum-quick-config.conf) in the source tree. This is a more abbreviated config file you can use as a starting point as well.
 
-`Fulcrum` requires a `palladiumd` instance running on `mainnet`, `testnet` or `regtest` (or `regtest` for testing), which you must tell it about via the CLI options or via the config file.  You also need to tell it what port(s) to listen on and optionally what SSL certificates to use (if using SSL). ***Note:*** *Electrum-based wallets generally no longer connect to non-SSL servers, so you should probably configure SSL for production use*.
+`plm-fulcrum` requires a `palladiumd` instance running on `mainnet`, `testnet` or `regtest`, which you must tell it about via the CLI options or via the config file.  You also need to tell it what port(s) to listen on and optionally what SSL certificates to use (if using SSL). ***Note:*** *Electrum-based wallets generally no longer connect to non-SSL servers, so you should probably configure SSL for production use*.
 
 It is recommended you specify a data dir (`-D` via CLI or `datadir=` via config file) on an SSD drive for best results.  Synching against `testnet` should take you about 10-20 minutes (more on slower machines), and mainnet can take anywhere from 4 hours to 20+ hours, depending on machine and drive speed.  I have not tried synching against mainnet on an HDD and it will probably take ***days*** if you are lucky.
 
 As long as the server is still synchronizing, all public-facing ports will not yet be bound for listening and as such an attempt to connect to one of the RPC ports will fail with a socket error such as e.g. "Connection refused". Once the server finishes synching it will behave like an ElectrumX server and it can receive requests from Electrum-protocol clients.
 
-You may also wish to read the [Fulcrum manpage](doc/unix-man-page.md).
+You may also wish to read the [plm-fulcrum manpage](doc/unix-man-page.md).
 
 
-#### Admin Script: FulcrumAdmin
+#### Admin Script: plm-fulcrum-admin
 
-`Fulcrum` comes with an admin script (`Python 3.6+` is required on the system to run this script).  You may send commands to `Fulcrum` using this script. The script requires that an **admin port** (config var `admin=`, CLI arg `-a`) be configured for your server.  To run the script, execute `./FulcrumAdmin -h` and you will see a list of possible subcommands that you can send to `Fulcrum`. Below you see all available commands (the below assumes the `admin` port is on port `8000`):
+`plm-fulcrum` comes with an admin script (`Python 3.6+` is required on the system to run this script).  You may send commands to `plm-fulcrum` using this script. The script requires that an **admin port** (config var `admin=`, CLI arg `-a`) be configured for your server.  To run the script, execute `./plm-fulcrum-admin -h` and you will see a list of possible subcommands that you can send to `plm-fulcrum`. Below you see all available commands (the below assumes the `admin` port is on port `8000`):
 
-    $ ./FulcrumAdmin -p 8000 addpeer              Add a peer to the server's list of peers
-    $ ./FulcrumAdmin -p 8000 ban                  Ban clients by ID and/or IP address
-    $ ./FulcrumAdmin -p 8000 banpeer              Ban peers by hostname suffix
-    $ ./FulcrumAdmin -p 8000 palladiumd_throttle    Query or set server palladiumd_throttle setting
-    $ ./FulcrumAdmin -p 8000 clients (sessions)   Print information on all the currently connected clients
-    $ ./FulcrumAdmin -p 8000 getinfo              Get server information
-    $ ./FulcrumAdmin -p 8000 kick                 Kick clients by ID and/or IP address
-    $ ./FulcrumAdmin -p 8000 listbanned (banlist) Print the list of banned IP addresses and peer hostnames
-    $ ./FulcrumAdmin -p 8000 loglevel             Set the server's logging verbosity
-    $ ./FulcrumAdmin -p 8000 maxbuffer            Query or set server max_buffer setting
-    $ ./FulcrumAdmin -p 8000 peers                Print peering information
-    $ ./FulcrumAdmin -p 8000 query                Query for balance, UTXO, and history information for one or more addresses
-    $ ./FulcrumAdmin -p 8000 rmpeer               Remove peers by hostname suffix
-    $ ./FulcrumAdmin -p 8000 simdjson             Get or set the server's 'simdjson' (JSON parser) setting
-    $ ./FulcrumAdmin -p 8000 stop (shutdown)      Gracefully shut down the server
-    $ ./FulcrumAdmin -p 8000 unban                Unban IP addresses
-    $ ./FulcrumAdmin -p 8000 unbanpeer            Unban peers by hostname suffix
+    $ ./plm-fulcrum-admin -p 8000 addpeer                 Add a peer to the server's list of peers
+    $ ./plm-fulcrum-admin -p 8000 ban                     Ban clients by ID and/or IP address
+    $ ./plm-fulcrum-admin -p 8000 banpeer                 Ban peers by hostname suffix
+    $ ./plm-fulcrum-admin -p 8000 palladiumd_throttle     Query or set server palladiumd_throttle setting
+    $ ./plm-fulcrum-admin -p 8000 clients (sessions)      Print information on all the currently connected clients
+    $ ./plm-fulcrum-admin -p 8000 getinfo                 Get server information
+    $ ./plm-fulcrum-admin -p 8000 kick                    Kick clients by ID and/or IP address
+    $ ./plm-fulcrum-admin -p 8000 listbanned (banlist)    Print the list of banned IP addresses and peer hostnames
+    $ ./plm-fulcrum-admin -p 8000 loglevel                Set the server's logging verbosity
+    $ ./plm-fulcrum-admin -p 8000 maxbuffer               Query or set server max_buffer setting
+    $ ./plm-fulcrum-admin -p 8000 peers                   Print peering information
+    $ ./plm-fulcrum-admin -p 8000 query                   Query for balance, UTXO, and history information for one or more addresses
+    $ ./plm-fulcrum-admin -p 8000 rmpeer                  Remove peers by hostname suffix
+    $ ./plm-fulcrum-admin -p 8000 simdjson                Get or set the server's 'simdjson' (JSON parser) setting
+    $ ./plm-fulcrum-admin -p 8000 stop (shutdown)         Gracefully shut down the server
+    $ ./plm-fulcrum-admin -p 8000 unban                   Unban IP addresses
+    $ ./plm-fulcrum-admin -p 8000 unbanpeer               Unban peers by hostname suffix
 
 ---
 
@@ -213,7 +213,3 @@ Everything should just work (I use MacOS as my dev machine).
 **Q:** Why Qt?  This isn't a GUI app!
 
 **A:** Yes, I know.  However, Qt is a very robust, cross-platform and fast application framework.  You can use its "Core" library for console apps, servers, etc.  It has great network support and other basic things a programmer needs to get stuff done.
-
-**Q:** Why is the compiled binary called `Fulcrum` (capital `F`) and not `fulcrum` (lowercase `f`) as is customary on Linux/Unix?
-
-**A:** Because I like capital letters, even on Linux.  I also develop (this and other software) for macOS and Windows and over there the Linux/Unix lowecase thing looks a little out-of-place.  Perhaps my sensibilities have been affected by my win32 and macOS dev work, or perhaps I'm just unconventional.  Embrace the lack of convention here! That being said, if the capital `F` bothers you, feel free to rename it or represent it as `fulcrum` wherever you like.

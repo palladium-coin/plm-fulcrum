@@ -53,7 +53,7 @@ def send_request(method, params=None):
         reqid = req['id']
         j = sndrecv_json(sock, req)
         if j.get("error") or j.get("id") != reqid:
-            raise ErrorResponse("Error response from Fulcrum:\n\n" + (json.dumps(j.get("error"), indent=4) or j))
+            raise ErrorResponse("Error response from plm-fulcrum:\n\n" + (json.dumps(j.get("error"), indent=4) or j))
         return j.get("result")
 
 
@@ -65,12 +65,12 @@ def send_request_batch(method_params_tuples):
         jarray = sndrecv_json(sock, batch)
         ret = []
         if not isinstance(jarray, (list, tuple)):
-            raise ErrorResponse("Error response from Fulcrum:\n\n" + jarray)
+            raise ErrorResponse("Error response from plm-fulcrum:\n\n" + jarray)
         # Sort the responses with respect to the 'id' so they are in the order caller specified
         jarray = sorted(jarray, key=lambda x: x.get('id') or -1)
         for item in jarray:
             if item.get("error") or 'result' not in item:
-                raise ErrorResponse("Error response from Fulcrum:\n\n" + (json.dumps(item.get("error"), indent=4)
+                raise ErrorResponse("Error response from plm-fulcrum:\n\n" + (json.dumps(item.get("error"), indent=4)
                                                                           or item))
             ret.append(item["result"])
         return ret
@@ -78,10 +78,10 @@ def send_request_batch(method_params_tuples):
 
 def main():
     global HOST, PORT, JSON, EXITSTATUS
-    parser = argparse.ArgumentParser(prog="FulcrumAdmin", description="Fulcrum CLI admin tool")
-    parser.add_argument('-p', type=int, metavar="port", nargs=1, required=True, help=f"Specify the port for the Fulcrum admin RPC service. This is a required argument.")
+    parser = argparse.ArgumentParser(prog="plm-fulcrum-admin", description="plm-fulcrum CLI admin tool")
+    parser.add_argument('-p', type=int, metavar="port", nargs=1, required=True, help=f"Specify the port for the plm-fulcrum admin RPC service. This is a required argument.")
     parser.add_argument('-j', action='store_true', dest="json", help=f"Print the response from the server as JSON, not as formatted text")
-    parser.add_argument('-H', type=str, metavar="host", nargs='?', default=HOST, help=f"Specify the host for the Fulcrum admin RPC service. Defaults to {HOST}.")
+    parser.add_argument('-H', type=str, metavar="host", nargs='?', default=HOST, help=f"Specify the host for the plm-fulcrum admin RPC service. Defaults to {HOST}.")
     subparsers = parser.add_subparsers(title="command", description="Select from one of the following commands:", dest="command")
     addpeer = subparsers.add_parser('addpeer', help="Add a peer to the server's list of peers")
     addpeer.add_argument('hostname', metavar='hostname', nargs=1, help="Hostname of peer.")
@@ -152,11 +152,11 @@ def main():
     elif command == 'stop' and not JSON:
         def handler(r):
             if isinstance(r, bool) and r:
-                return "Fulcrum server is shutting down"
+                return "plm-fulcrum server is shutting down"
             else:
                 global EXITSTATUS
                 EXITSTATUS = 1
-                return f"Unexpected response from Fulcrum server: {r}"
+                return f"Unexpected response from plm-fulcrum server: {r}"
         response_handler = handler
 
     elif command == 'clients' and not JSON:
@@ -216,7 +216,7 @@ def main():
 
 Note: Removal of 'Good' peers is not guaranteed to keep them from re-peering
 with the server in the near future. If you want the specified peer(s) to never
-possibly peer with this Fulcrum server, then please use the 'banpeer' command.
+possibly peer with this plm-fulcrum server, then please use the 'banpeer' command.
 ''')
         elif command == 'unban':
             command_params = args.ips
@@ -235,7 +235,7 @@ possibly peer with this Fulcrum server, then please use the 'banpeer' command.
                 else:
                     global EXITSTATUS
                     EXITSTATUS = 1
-                    return f"Unexpected response from Fulcrum server: {r}"
+                    return f"Unexpected response from plm-fulcrum server: {r}"
             response_handler = handler
 
     elif command == 'listbanned' and not JSON:
@@ -261,7 +261,7 @@ possibly peer with this Fulcrum server, then please use the 'banpeer' command.
                 else:
                     global EXITSTATUS
                     EXITSTATUS = 1
-                    return f"Unexpected response from Fulcrum server: {r}"
+                    return f"Unexpected response from plm-fulcrum server: {r}"
             response_handler = handler
 
     elif command == 'query':
@@ -375,7 +375,7 @@ def clients_handler(r):
     def badResp():
         global EXITSTATUS
         EXITSTATUS = 1
-        return f"Unexpected resposne from Fulcrum server: {r!r}"
+        return f"Unexpected resposne from plm-fulcrum server: {r!r}"
     if not isinstance(r, (list, tuple)):
         return badResp()
     lines = []
@@ -434,7 +434,7 @@ def listbanned_handler(r):
     def badResp():
         global EXITSTATUS
         EXITSTATUS = 1
-        return f"Unexpected resposne from Fulcrum server: {r!r}"
+        return f"Unexpected resposne from plm-fulcrum server: {r!r}"
     if not isinstance(r, (dict,)):
         return badResp()
     lines = []
@@ -491,7 +491,7 @@ def peers_handler(r):
     def badResp():
         global EXITSTATUS
         EXITSTATUS = 1
-        return f"Unexpected resposne from Fulcrum server: {r!r}"
+        return f"Unexpected resposne from plm-fulcrum server: {r!r}"
 
     if not isinstance(r, (dict,)):
         return badResp()

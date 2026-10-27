@@ -13,8 +13,8 @@ PACKAGE="$1"
 ROCKSDB_PACKAGE="$2"
 JEMALLOC_PACKAGE="$3"
 MINIUPNPC_PACKAGE="$4"
-TARGET_BINARY=Fulcrum.exe
-TARGET_ADMIN_SCRIPT=FulcrumAdmin
+TARGET_BINARY=plm-fulcrum.exe
+TARGET_ADMIN_SCRIPT=plm-fulcrum-admin
 if [ -n "$5" ]; then
     DEBUG_BUILD=1  # optional 5th arg, if not empty, is debug
 else
@@ -133,7 +133,7 @@ fi
 # Figure out the git commit hash
 GIT_COMMIT=$(git -C .. describe --always --dirty --match NOT_A_TAG)
 
-${ACTUAL_QMAKE} -makefile ../Fulcrum.pro ${dbg_opts} \
+${ACTUAL_QMAKE} -makefile ../plm-fulcrum.pro ${dbg_opts} \
                      LIBS+="-L${ROCKSDB_LIBDIR}" LIBS+="-lrocksdb" \
                      INCLUDEPATH+="${ROCKSDB_INCDIR}" \
                      LIBS+="-L${JEMALLOC_LIBDIR}" LIBS+="-ljemalloc" \

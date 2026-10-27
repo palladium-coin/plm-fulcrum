@@ -672,14 +672,14 @@ auto PeerMgr::stats() const -> Stats
         m0[client->info.hostName] = client->stats();
     ret["verifying"] = m0;
 
-    // NB: FulcrumAdmin script expects the good peers to live under the "peers" key
+    // NB: plm-fulcrum-admin script expects the good peers to live under the "peers" key
     m0.clear();
     for (const auto & pi : good) {
         auto m1 = pi.toStatsMap();
-        // FulcrumAdmin script expects this to exist here for verified peers, if this is false it will print "Verifying"
+        // plm-fulcrum-admin script expects this to exist here for verified peers, if this is false it will print "Verifying"
         // for the peer, otherwise it will print "Good" if true.
         m1["verified"] = not clients.contains(pi.hostName);
-        // FulcrumAdmin also expects this key here to indicate how long it's been "good"
+        // plm-fulcrum-admin also expects this key here to indicate how long it's been "good"
         m1["connectedTime"] = pi.firstGoodAge().value_or(0.);
 
         m0[pi.hostName] = std::move(m1);

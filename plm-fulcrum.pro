@@ -534,7 +534,7 @@ unix:!android: {
 
     QMAKE_STRIP = true # Trick qmake into not stripping files
     admin.path = $${PREFIX}/bin
-    admin.files = FulcrumAdmin
+    admin.files = plm-fulcrum-admin
 }
 
 !isEmpty(target.path): INSTALLS += target

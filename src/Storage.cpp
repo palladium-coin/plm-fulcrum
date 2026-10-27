@@ -119,7 +119,7 @@ namespace {
         /// These fields only are valid in v3 or above (.version >= kMinHasExtraPlatformInfoVersion)
         /// These fields get re-saved to the DB from the current program's info each time (along with `platformBits`
         /// above) in function: Storage::checkUpgradeDBVersion().
-        QString appName; // "Fulcrum"
+        QString appName; // "plm-fulcrum"
         QString appVersion; // e.g. "1.11.0 (Release d884cb4)"
         QString rocksDBVersion; // e.g. "9.2.1-08f9322"
         QString buildABI; // ABI used at build-time, e.g. "x86_64-little_endian-lp64"

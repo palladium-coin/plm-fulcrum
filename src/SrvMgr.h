@@ -62,7 +62,7 @@ public:
 
     /// Must be called in this object's thread -- does a blocking call to all the Server instances that are started
     /// (timeout_ms, specify timeout_ms <= 0 to block forever), and prepares the QVariantList RPC response appropriate
-    /// to send back to the FulcrumAdmin script.  May throw Utils::TimeoutException, or Util::ThreadNotRunning if called
+    /// to send back to the plm-fulcrum-admin script.  May throw Utils::TimeoutException, or Util::ThreadNotRunning if called
     /// with the servers stopped.
     QVariantList adminRPC_getClients_blocking(int timeout_ms) const;
     /// Called by the admin server (and also the ::stats method). This is thread-safe as it takes a lock.
