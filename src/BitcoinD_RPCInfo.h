@@ -33,7 +33,7 @@ class BitcoinD_RPCInfo {
 public:
     /// hostname, port pair. We resolve bitcoind's actual IP address each time if it's a hostname and not an IP address string.
     QPair<QString, quint16> hostPort;
-    /// CLI: --bitcoind-tls. If true, we will connect to the remote bitcoind via SSL/TLS. See BitcoinD.cpp.
+    /// CLI: --palladiumd-tls. If true, we will connect to the remote bitcoind via SSL/TLS. See BitcoinD.cpp.
     bool tls = false;
 
     /// Throws an BadArgs if file is the empty string, otherwise always succeeds

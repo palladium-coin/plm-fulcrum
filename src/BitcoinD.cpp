@@ -688,7 +688,7 @@ void BitcoinDMgr::requestTimeoutChecker()
             // (see the note above in submitRequest() about the race that may occur there).
             // It also may happen if the bitcoind is very slow to respond or has a slow connection.
             // For requests originating from our app and not from clients, the CLI arg --bd-timeout
-            // or conf var bitcoind_timeout can help alleviate the situation if we get this error often.
+            // or conf var palladiumd_timeout can help alleviate the situation if we get this error often.
             context->timedOut = true; // flag it as having already been handled
             ++requestTimeoutCtr; // increment counter for /stats
             emit context->fail(it.key(), "palladiumd request timed out");
@@ -855,7 +855,7 @@ void BitcoinD::reconnect()
     }
     const auto & [host, port] = rpcInfo.hostPort;
     if (rpcInfo.tls) {
-        // remote bitcoind expects https (--bitcoind-tls CLI option); usually this is only for bchd
+        // remote bitcoind expects https (--palladiumd-tls CLI option); palladiumd itself speaks plain HTTP
         QSslSocket *ssl;
         socket = ssl = new QSslSocket(this);
 

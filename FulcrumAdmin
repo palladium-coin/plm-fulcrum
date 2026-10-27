@@ -91,8 +91,8 @@ def main():
     ban.add_argument('id_or_ip', metavar='ipaddress_or_id', nargs='+', help="Client ID or IP address to ban.")
     banpeer = subparsers.add_parser('banpeer', help="Ban peers by hostname suffix")
     banpeer.add_argument('hostnames', metavar='hostname', nargs='+', help="A hostname or hostname suffix e.g. somehost.com or *some.host.com.")
-    bitcoind_throttle = subparsers.add_parser('bitcoind_throttle', help="Query or set server bitcoind_throttle setting")
-    bitcoind_throttle.add_argument('param', metavar='param', nargs='*', help='The new desired setting. Specify 3 arguments to set this properly for: high low decay. Omit arguments to query.')
+    palladiumd_throttle = subparsers.add_parser('palladiumd_throttle', help="Query or set server palladiumd_throttle setting")
+    palladiumd_throttle.add_argument('param', metavar='param', nargs='*', help='The new desired setting. Specify 3 arguments to set this properly for: high low decay. Omit arguments to query.')
     clients = subparsers.add_parser('clients', help="Print information on all the currently connected clients", aliases=['sessions'])
     getinfo = subparsers.add_parser('getinfo', help="Get server information")
     kick = subparsers.add_parser('kick', help="Kick clients by ID and/or IP address")
@@ -193,16 +193,16 @@ def main():
                         return "Server simdjson parser is disabled"
             response_handler = handler
 
-    elif command == 'bitcoind_throttle':
+    elif command == 'palladiumd_throttle':
         command_params = args.param if len(args.param) else command_params
         if not JSON:
             def handler(x):
                 names = defaultdict(lambda: "???")
                 names.update({ 0: "high", 1: "low", 2: "decay" })
                 if command_params:
-                    return f"Server bitcoind_throttle setting -> " + ', '.join(names[n] + ' = ' + str(i) for n,i in enumerate(x))
+                    return f"Server palladiumd_throttle setting -> " + ', '.join(names[n] + ' = ' + str(i) for n,i in enumerate(x))
                 else:
-                    return "Server bitcoind_throttle setting is: " + ', '.join(names[n] + ' = ' + str(i) for n,i in enumerate(x))
+                    return "Server palladiumd_throttle setting is: " + ', '.join(names[n] + ' = ' + str(i) for n,i in enumerate(x))
             response_handler = handler
 
     elif command in ('kick', 'ban', 'banpeer', 'unban', 'unbanpeer', 'rmpeer', 'loglevel'):

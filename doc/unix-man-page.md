@@ -70,10 +70,10 @@ Once the server finishes synching it will behave like an ElectronX/ElectrumX ser
 -z, --stats <[interface:]port>
 :   Specify listen address and port for the stats HTTP server. Format is same as the -s, -t or -a options, e.g.: <interface:port>. Default is to not start any starts HTTP servers.  Also, like the -a option, you may specify a port number by itself here and 127.0.0.1:<port> will be assumed. This option may be specified more than once to bind to multiple interfaces and/or ports.
 
--b, --bitcoind <hostname:port>
+-b, --palladiumd <hostname:port>
 :   Specify a <hostname:port> to connect to the palladiumd rpc service. This is a required option, along with -u and -p. This hostname:port should be the same as you specified in your palladium.conf file under rpcbind- and rpcport-.
 
---bitcoind-tls
+--palladiumd-tls
 :   If specified, connect to the remote palladiumd via HTTPS rather than the usual HTTP. palladiumd itself only speaks JSON-RPC over HTTP, so this is only useful behind a TLS-terminating proxy.
 
 -u, --rpcuser <username>
@@ -110,10 +110,10 @@ Once the server finishes synching it will behave like an ElectronX/ElectrumX ser
 :   If specified, disable the fast simdjson backend for JSON parsing. This parser is over 2x faster than the original parser, and is enabled by default as of Fulcrum version 1.3.0.
 
 --bd-timeout
-:   Corresponds to the configuration file variable "bitcoind_timeout". The number of seconds to wait for unanswered palladiumd requests before we consider them as having timed-out (default: 30). You may wish to set this higher than the default if you see "palladiumd request timed out" appear in the log.
+:   Corresponds to the configuration file variable "palladiumd_timeout". The number of seconds to wait for unanswered palladiumd requests before we consider them as having timed-out (default: 30). You may wish to set this higher than the default if you see "palladiumd request timed out" appear in the log.
 
 --bd-clients
-:   Corresponds to the configuration file variable "bitcoind_clients". The number of simultaneous RPC clients that we spawn to connect to palladiumd (default: 3). If you raise this value from the default, be sure to also specify the option `rpcthreads=` to palladiumd so that there are enough threads to accommodate the clients we spawn, otherwise you may get errors from palladiumd.
+:   Corresponds to the configuration file variable "palladiumd_clients". The number of simultaneous RPC clients that we spawn to connect to palladiumd (default: 3). If you raise this value from the default, be sure to also specify the option `rpcthreads=` to palladiumd so that there are enough threads to accommodate the clients we spawn, otherwise you may get errors from palladiumd.
 
 --compact-dbs
 :   If specified, Fulcrum will compact all databases on startup. The compaction process reduces database disk space usage by removing redundant/unused data. Note that rocksdb normally compacts the databases in the background while Fulcrum is running, so using this option to explicitly compact the database files on startup is not strictly necessary.

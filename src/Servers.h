@@ -571,7 +571,7 @@ private:
     void rpc_addpeer(Client *, RPC::BatchId, const RPC::Message &);
     void rpc_ban(Client *, RPC::BatchId, const RPC::Message &);
     void rpc_banpeer(Client *, RPC::BatchId, const RPC::Message &);
-    void rpc_bitcoind_throttle(Client *, RPC::BatchId, const RPC::Message &); // getter / setter in 1 method
+    void rpc_palladiumd_throttle(Client *, RPC::BatchId, const RPC::Message &); // getter / setter in 1 method
     void rpc_clients(Client *, RPC::BatchId, const RPC::Message &);
     void rpc_getinfo(Client *, RPC::BatchId, const RPC::Message &);
     void rpc_kick(Client *, RPC::BatchId, const RPC::Message &);
@@ -666,7 +666,7 @@ public:
     QMetaObject::Connection headerSubConnection; ///< if valid, this client is subscribed to headers (`Server::newHeader` signal)
     std::atomic_int nShSubs{0};  ///< the number of unique scripthash subscriptions for this client.
 
-    //bitcoind_throttle counter, per client
+    //palladiumd_throttle counter, per client
     qint64 bdReqCtr = 0;
 
     double lastWarnedAboutSubsLimit = 0.; ///< used to throttle log messages when client hits subs limit

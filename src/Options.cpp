@@ -117,8 +117,8 @@ QVariantMap Options::toMap() const
             m["wss-key"] = wssCertInfo->keyFile;
         }
     }
-    m["bitcoind"] = QString("%1:%2").arg(bdRPCInfo.hostPort.first, QString::number(bdRPCInfo.hostPort.second));
-    m["bitcoind-tls"] = bdRPCInfo.tls;
+    m["palladiumd"] = QString("%1:%2").arg(bdRPCInfo.hostPort.first, QString::number(bdRPCInfo.hostPort.second));
+    m["palladiumd-tls"] = bdRPCInfo.tls;
     m["hasIPv6 listener"] = hasIPv6Listener;
     if (const auto cf = bdRPCInfo.getCookieFile(); !cf.isEmpty()) {
         m["rpccookie"] = QVariant(cf);
@@ -160,9 +160,9 @@ QVariantMap Options::toMap() const
     m["tor_user"] = torUser.isNull() ? QVariant() : QVariant("<hidden>");
     m["tor_pass"] = torPass.isNull() ? QVariant() : QVariant("<hidden>");
     // /tor related
-    // bitcoind_throttle params
+    // palladiumd_throttle params
     const auto [hi, lo, decay] = bdReqThrottleParams.load();
-    m["bitcoind_throttle"] = QVariantList{ hi, lo, decay };
+    m["palladiumd_throttle"] = QVariantList{ hi, lo, decay };
     // max_subs_per_ip & max_subs
     m["max_subs_per_ip"] = qlonglong(maxSubsPerIP);
     m["max_subs"] = qlonglong(maxSubsGlobally);
@@ -177,10 +177,10 @@ QVariantMap Options::toMap() const
     m["tls-disallow-deprecated"] = tlsDisallowDeprecated;
     // simdjson
     m["simdjson"] = isSimdJson();
-    // bitcoind_timeout
-    m["bitcoind_timeout"] = bdTimeoutMS;
-    // bitcoind_clients
-    m["bitcoind_clients"] = bdNClients;
+    // palladiumd_timeout
+    m["palladiumd_timeout"] = bdTimeoutMS;
+    // palladiumd_clients
+    m["palladiumd_clients"] = bdNClients;
     // max_reorg
     m["max_reorg"] = maxReorg;
     // txhash_cache

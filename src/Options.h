@@ -179,7 +179,7 @@ public:
             decay = defaultBDReqDecayPerSec; ///< decay - how much to decay from the bitcoind request counter, per second
         bool isValid() const noexcept;
     };
-    /// Comes from a triplet in config, if specified e.g.: "bitcoind_throttle = 50, 20, 10"
+    /// Comes from a triplet in config, if specified e.g.: "palladiumd_throttle = 50, 20, 10"
     AtomicStruct<BdReqThrottleParams> bdReqThrottleParams;
 
     static constexpr int64_t defaultMaxSubsPerIP = 75'000, maxSubsPerIPMin = 500, maxSubsPerIPMax = std::numeric_limits<int>::max()/2; // 75k, 500, 10^30 (~1bln) respectively
@@ -236,7 +236,7 @@ public:
     /// This is actually a thin wrapper around RPC::setFastJson(), hence why it is static
     static bool setSimdJson(bool b, bool forcePrintToLog = false);
 
-    // CLI: --bd-timeout, config: bitcoind_timeout
+    // CLI: --bd-timeout, config: palladiumd_timeout
     /// These values are all in milliseconds but the incoming variable from the user is expressed as a double in seconds.
     /// Note that bitcoind requests originating from clients all use BitcoinDMgr::kDefaultTimeoutMS regardless of this value.
     /// This setting is only for bitcoind requests originating from the Controller class.
@@ -245,7 +245,7 @@ public:
     static constexpr bool isBdTimeoutInRange(int msec) { return msec >= bdTimeoutMin && msec <= bdTimeoutMax; }
     int bdTimeoutMS = defaultBdTimeout; ///< the amount of time to wait for BitcoinD requests originating from Controller.cpp
 
-    // CLI: --bd-clients, config: bitcoind_clients
+    // CLI: --bd-clients, config: palladiumd_clients
     /// Corresponds to the number of BitcoinD clients that we spawn. Ideally bitcoind itself also has
     /// -rpcthreads=1+bdNClients, and a sufficiently large -rpcworkqueue= as well.
     static constexpr unsigned defaultBdNClients = 3, bdNClientsMax = 1024, bdNClientsMin = 1;

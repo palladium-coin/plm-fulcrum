@@ -476,13 +476,13 @@ void App::parseArgs()
        " This option may be specified more than once to bind to multiple interfaces and/or ports.\n"),
        QString("[interface:]port"),
     },
-    { { "b", "bitcoind" },
+    { { "b", "palladiumd" },
        QString("Specify a <hostname:port> to connect to the palladiumd rpc service. This is a required option, along"
        " with -u and -p. This hostname:port should be the same as you specified in your palladium.conf file"
        " under rpcbind= and rpcport=.\n"),
        QString("hostname:port"),
     },
-    { "bitcoind-tls",
+    { "palladiumd-tls",
        QString("If specified, connect to the remote palladiumd via HTTPS rather than the usual HTTP."
                " palladiumd supports only JSON-RPC over HTTP, so this is only useful behind a TLS-terminating proxy.\n"),
     },
@@ -551,7 +551,7 @@ void App::parseArgs()
     },
     {
         "bd-timeout",
-        QString("Corresponds to the configuration file variable \"bitcoind_timeout\". The number of seconds to wait for"
+        QString("Corresponds to the configuration file variable \"palladiumd_timeout\". The number of seconds to wait for"
                 " unanswered palladiumd requests before we consider them as having timed-out (default: %1). You may wish"
                 " to set this higher than the default if you see \"palladiumd request timed"
                 " out\" appear in the log.\n").arg(double(Options::defaultBdTimeout)/1e3),
@@ -559,7 +559,7 @@ void App::parseArgs()
     },
     {
         "bd-clients",
-        QString("Corresponds to the configuration file variable \"bitcoind_clients\". The number of simultaneous"
+        QString("Corresponds to the configuration file variable \"palladiumd_clients\". The number of simultaneous"
                 " RPC clients that we spawn to connect to palladiumd (default: %1). If you raise this value from"
                 " the default, be sure to also specify the option `rpcthreads=` to palladiumd so that there are enough"
                 " threads to accommodate the clients we spawn, otherwise you may get errors from palladiumd.\n")
@@ -809,7 +809,7 @@ void App::parseArgs()
     const bool specifiedRpcCookie = conf.hasValue("rpccookie") || parser.isSet("K");
     using ReqOptsList = std::list<std::tuple<QString, QString, const char *, bool>>;
     for (const auto & opt : ReqOptsList({{"D", "datadir", nullptr, true},
-                                         {"b", "bitcoind", nullptr, true},
+                                         {"b", "palladiumd", nullptr, true},
                                          {"u", "rpcuser", RPCUSER, !specifiedRpcCookie},
                                          {"p", "rpcpassword", RPCPASSWORD, !specifiedRpcCookie},}))
     {
@@ -887,13 +887,13 @@ void App::parseArgs()
         Util::AsyncOnObject(this, [path]{ Debug() << "datadir: Created directory " << path; });
     }
 
-    // parse bitcoind - conf.value is always unset if parser.value is set, hence this strange constrcution below (parser.value takes precedence)
-    options->bdRPCInfo.hostPort = Util::ParseHostPortPair(conf.value("bitcoind", parser.value("b")));
-    // --bitcoind-tls
-    if ((options->bdRPCInfo.tls = parser.isSet("bitcoind-tls") || conf.boolValue("bitcoind_tls", conf.boolValue("bitcoind-tls")))) {
+    // parse palladiumd - conf.value is always unset if parser.value is set, hence this strange constrcution below (parser.value takes precedence)
+    options->bdRPCInfo.hostPort = Util::ParseHostPortPair(conf.value("palladiumd", parser.value("b")));
+    // --palladiumd-tls
+    if ((options->bdRPCInfo.tls = parser.isSet("palladiumd-tls") || conf.boolValue("palladiumd_tls", conf.boolValue("palladiumd-tls")))) {
         // check that Qt actually supports SSL since we now know that we require it to proceed
         checkSupportsSsl();
-        Util::AsyncOnObject(this, []{ Debug() << "config: bitcoind_tls = true"; });
+        Util::AsyncOnObject(this, []{ Debug() << "config: palladiumd_tls = true"; });
     }
     if (specifiedRpcCookie) {
         options->bdRPCInfo.setCookieFile(conf.value("rpccookie", parser.value("K")));
@@ -1238,8 +1238,8 @@ void App::parseArgs()
     }
     // /Tor params
 
-    if (conf.hasValue("bitcoind_throttle")) {
-        const QStringList vals = conf.value("bitcoind_throttle").trimmed().simplified().split(QRegularExpression("\\W+"), Compat::SplitBehaviorSkipEmptyParts);
+    if (conf.hasValue("palladiumd_throttle")) {
+        const QStringList vals = conf.value("palladiumd_throttle").trimmed().simplified().split(QRegularExpression("\\W+"), Compat::SplitBehaviorSkipEmptyParts);
         constexpr size_t N = 3;
         std::array<int, N> parsed = {0,0,0};
         size_t i = 0;
@@ -1253,10 +1253,10 @@ void App::parseArgs()
         ok = ok && i == N && p.isValid();
         if (!ok)
             // failed to parse.. abort...
-            throw BadArgs("Failed to parse \"bitcoind_throttle\" -- out of range or invalid format. Please specify 3 positive integers in range.");
+            throw BadArgs("Failed to parse \"palladiumd_throttle\" -- out of range or invalid format. Please specify 3 positive integers in range.");
         options->bdReqThrottleParams.store(p);
         // log this later in case we are in syslog mode
-        Util::AsyncOnObject(this, [p]{ Debug() << "config: bitcoind_throttle = " << QString("(hi: %1, lo: %2, decay: %3)").arg(p.hi).arg(p.lo).arg(p.decay); });
+        Util::AsyncOnObject(this, [p]{ Debug() << "config: palladiumd_throttle = " << QString("(hi: %1, lo: %2, decay: %3)").arg(p.hi).arg(p.lo).arg(p.decay); });
     }
     if (conf.hasValue("max_subs_per_ip")) {
         bool ok;
@@ -1379,12 +1379,12 @@ void App::parseArgs()
         });
     }
 
-    // --bd-timeout on CLI or bitcoind_timeout from conf
-    if (const bool pset = parser.isSet("bd-timeout"); pset || conf.hasValue("bitcoind_timeout")) {
+    // --bd-timeout on CLI or palladiumd_timeout from conf
+    if (const bool pset = parser.isSet("bd-timeout"); pset || conf.hasValue("palladiumd_timeout")) {
         bool ok{};
-        const auto name = pset ? "bd-timeout" : "bitcoind_timeout";
+        const auto name = pset ? "bd-timeout" : "palladiumd_timeout";
         const int msec = int(1e3 * (pset ? parser.value("bd-timeout").toDouble(&ok)
-                                         : conf.doubleValue("bitcoind_timeout", 0., &ok)));
+                                         : conf.doubleValue("palladiumd_timeout", 0., &ok)));
         if (!ok || !options->isBdTimeoutInRange(msec))
             throw BadArgs(QString("%1: please specify a value in the range [%2, %3]").arg(name)
                           .arg(options->bdTimeoutMin/1e3).arg(options->bdTimeoutMax/1e3));
@@ -1392,12 +1392,12 @@ void App::parseArgs()
         Util::AsyncOnObject(this, [secs=msec/1e3, name]{ DebugM("config: ", name, " = ", QString::number(secs, 'f', 3)); });
     }
 
-    // --bd-clients on CLI or bitcoind_clients from conf
-    if (const bool pset = parser.isSet("bd-clients"); pset || conf.hasValue("bitcoind_clients")) {
+    // --bd-clients on CLI or palladiumd_clients from conf
+    if (const bool pset = parser.isSet("bd-clients"); pset || conf.hasValue("palladiumd_clients")) {
         bool ok{};
-        const auto name = pset ? "bd-clients" : "bitcoind_clients";
+        const auto name = pset ? "bd-clients" : "palladiumd_clients";
         const unsigned n = pset ? parser.value("bd-clients").toUInt(&ok)
-                                : unsigned(conf.intValue("bitcoind_clients", 0, &ok));
+                                : unsigned(conf.intValue("palladiumd_clients", 0, &ok));
         if (!ok || !options->isBdNClientsInRange(n))
             throw BadArgs(QString("%1: please specify a value in the range [%2, %3]").arg(name)
                           .arg(options->bdNClientsMin).arg(options->bdNClientsMax));
@@ -1684,7 +1684,7 @@ void App::on_bitcoindThrottleParamsChange(int hi, int lo, int decay)
     if (p.isValid())
         options->bdReqThrottleParams.store(p);
     else
-        Warning() << __func__ << ": arguments out of range, ignoring new bitcoind_throttle setting";
+        Warning() << __func__ << ": arguments out of range, ignoring new palladiumd_throttle setting";
 }
 
 /* static */

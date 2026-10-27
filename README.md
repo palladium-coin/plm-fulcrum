@@ -167,7 +167,7 @@ You may also wish to read the [Fulcrum manpage](doc/unix-man-page.md).
     $ ./FulcrumAdmin -p 8000 addpeer              Add a peer to the server's list of peers
     $ ./FulcrumAdmin -p 8000 ban                  Ban clients by ID and/or IP address
     $ ./FulcrumAdmin -p 8000 banpeer              Ban peers by hostname suffix
-    $ ./FulcrumAdmin -p 8000 bitcoind_throttle    Query or set server bitcoind_throttle setting
+    $ ./FulcrumAdmin -p 8000 palladiumd_throttle    Query or set server palladiumd_throttle setting
     $ ./FulcrumAdmin -p 8000 clients (sessions)   Print information on all the currently connected clients
     $ ./FulcrumAdmin -p 8000 getinfo              Get server information
     $ ./FulcrumAdmin -p 8000 kick                 Kick clients by ID and/or IP address

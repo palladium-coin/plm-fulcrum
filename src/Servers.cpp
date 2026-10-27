@@ -2610,7 +2610,7 @@ void AdminServer::rpc_banpeer(Client *c, const RPC::BatchId batchId, const RPC::
     }
     emit c->sendResult(batchId, m.id, bool(ctr));
 }
-void AdminServer::rpc_bitcoind_throttle(Client *c, const RPC::BatchId batchId, const RPC::Message &m)
+void AdminServer::rpc_palladiumd_throttle(Client *c, const RPC::BatchId batchId, const RPC::Message &m)
 {
     const QVariantList l = m.paramsList();
     if (!l.isEmpty()) {
@@ -2647,8 +2647,8 @@ void AdminServer::rpc_clients(Client *c, const RPC::BatchId batchId, const RPC::
 void AdminServer::rpc_getinfo(Client *c, const RPC::BatchId batchId, const RPC::Message &m)
 {
     QVariantMap res;
-    res["bitcoind"] = QString("%1:%2").arg(options->bdRPCInfo.hostPort.first, QString::number(options->bdRPCInfo.hostPort.second));
-    res["bitcoind_info"] = bitcoindmgr->getBitcoinDInfo().toVariantMap();
+    res["palladiumd"] = QString("%1:%2").arg(options->bdRPCInfo.hostPort.first, QString::number(options->bdRPCInfo.hostPort.second));
+    res["palladiumd_info"] = bitcoindmgr->getBitcoinDInfo().toVariantMap();
     {
         const auto opt = storage->latestHeight();
         res["height"] = opt.has_value() ? *opt : QVariant();
@@ -2926,7 +2926,7 @@ HEY_COMPILER_PUT_STATIC_HERE(AdminServer::StaticData::registry){
     { {"addpeer",                           true,               false,    PR{0,0},      KS{"host","tcp","ssl"} }, MP(rpc_addpeer) },
     { {"ban",                               true,               false,    PR{1,UNLIMITED},         {} },          MP(rpc_ban) },
     { {"banpeer",                           true,               false,    PR{1,UNLIMITED},         {} },          MP(rpc_banpeer) },
-    { {"bitcoind_throttle",                 true,               false,    PR{0,3},                 {} },          MP(rpc_bitcoind_throttle) },
+    { {"palladiumd_throttle",                 true,               false,    PR{0,3},                 {} },          MP(rpc_palladiumd_throttle) },
     { {"clients",                           true,               false,    PR{0,0},                 {} },          MP(rpc_clients) },
     { {"getinfo",                           true,               false,    PR{0,0},                 {} },          MP(rpc_getinfo) },
     { {"kick",                              true,               false,    PR{1,UNLIMITED},         {} },          MP(rpc_kick) },
