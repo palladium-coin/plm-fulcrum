@@ -845,7 +845,7 @@ void ServerBase::generic_async_to_bitcoind(Client *c, const RPC::BatchId batchId
         ++c->perIPData->bdReqCtr; // increase bitcoind request counter (per-IP, owned by multiple threads)
         ++c->perIPData->bdReqCtr_cum; // increase cumulative bitcoind request counter (per-IP, owned by multiple threads)
         if (++c->bdReqCtr/*<- incr. per-client counter*/ >= bdReqHi && !c->isReadPaused()) {
-            DebugM(c->prettyName(), " has bitcoinD req ctr: ", c->bdReqCtr, " (PerIP ctr: ",
+            DebugM(c->prettyName(), " has palladiumd req ctr: ", c->bdReqCtr, " (PerIP ctr: ",
                    c->perIPData->bdReqCtr, "), PAUSING reads from socket");
             c->setReadPaused(true); // pause reading from this client -- they exceeded threshold.
             // if timer not already active, start timer to decay ctr over time --
@@ -857,7 +857,7 @@ void ServerBase::generic_async_to_bitcoind(Client *c, const RPC::BatchId batchId
                 if ((++iCtr % kPollFreqHz) == 0) // every kPollFreqHz iterations = every 1 second, decay the counter by decayPerSec amount
                     c->bdReqCtr -= std::min(qint64(decayPerSec), c->bdReqCtr);
                 if (c->isReadPaused() && c->bdReqCtr <= bdReqLo) {
-                    DebugM(c->prettyName(), " has bitcoinD req ctr: ", c->bdReqCtr, " (PerIP ctr: ",
+                    DebugM(c->prettyName(), " has palladiumd req ctr: ", c->bdReqCtr, " (PerIP ctr: ",
                            c->perIPData->bdReqCtr, "), RESUMING reads from socket");
                     c->setReadPaused(false);
                 }
@@ -1458,7 +1458,7 @@ void Server::rpc_blockchain_header_get(Client *c, const RPC::BatchId batchId, co
             // parse height
             const BlockHeight height = map.value("height", "").toUInt(&ok);
             if (!ok)
-                throw RPCError("Unable to parse height response from bitcoind", RPC::ErrorCodes::Code_InternalError);
+                throw RPCError("Unable to parse height response from palladiumd", RPC::ErrorCodes::Code_InternalError);
             // now call into the common implementation, which will return a map of {"height": xxx, "hex": "xxx"}
             impl_blockchain_header_get(c, batchId, msgId, height);
             return DontAutoSendReply;

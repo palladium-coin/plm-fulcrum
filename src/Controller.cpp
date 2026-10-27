@@ -76,7 +76,7 @@ void Controller::startup()
         if (!storage->isNewlyInitialized() && ctype == BTC::Coin::Unknown) {
             if (!coin.isEmpty()) {
                 // Coin field in DB is unrecognized. Complain.
-                throw InternalError(QString("This database was synched to a bitcoind for the coin \"%1\", yet that coin"
+                throw InternalError(QString("This database was synched to a palladiumd for the coin \"%1\", yet that coin"
                                             " is unknown to this version of %2. Please use the version of %2 that was"
                                             " used to create this database, or specify a different datadir to create"
                                             " a new database.").arg(coin, QString{APPNAME}));
@@ -109,7 +109,7 @@ void Controller::startup()
             lostConn = true;
             stopTimer(pollTimerName);
             stopTimer(callProcessTimer);
-            callOnTimerSoon(msgPeriod, waitTimer, []{ Log("Waiting for bitcoind..."); return true; }, false, Qt::TimerType::VeryCoarseTimer);
+            callOnTimerSoon(msgPeriod, waitTimer, []{ Log("Waiting for palladiumd..."); return true; }, false, Qt::TimerType::VeryCoarseTimer);
         };
         waitForBitcoinD();
         conns += connect(bitcoindmgr.get(), &BitcoinDMgr::coinDetected, this, &Controller::on_coinDetected,
@@ -164,7 +164,7 @@ void Controller::startup()
             auto now = Util::getTimeSecs();
             if (now-last >= 1.0) { // throttled to not spam log
                 last = now;
-                Log() << "bitcoind is still warming up: " << msg;
+                Log() << "palladiumd is still warming up: " << msg;
             }
         });
 
@@ -221,7 +221,7 @@ void Controller::startup()
         if (!optHash) return; // no blocks yet, somehow. must be a brand new chain. we will be called again later when blocks start showing up.
         auto onSuccess = [this, connPtr2, hash=*optHash] (const RPC::Message &resp) {
             bitcoin::CMutableTransaction tx;
-            constexpr auto kErrLine2 = "Something is wrong with either BitcoinD or our ability to understand its RPC responses.";
+            constexpr auto kErrLine2 = "Something is wrong with either palladiumd or our ability to understand its RPC responses.";
             try {
                 BTC::Deserialize(tx, Util::ParseHexFast(resp.result().toByteArray()), 0, true /* allowSegWit */);
             } catch (const std::exception &e) {
@@ -234,7 +234,7 @@ void Controller::startup()
                 Error() << kErrLine2;
                 return;
             }
-            DebugM("BitcoinD verified to have txindex enabled");
+            DebugM("palladiumd verified to have txindex enabled");
             // success! disconnect the slot now, connPtr2 will delete the managed object when we return.
             disconnect(*connPtr2);
         };
@@ -242,12 +242,12 @@ void Controller::startup()
             Error() << "\n"
                     << "******************************************************************************\n"
                     << "*   Error: txindex verification failed!                                      *\n"
-                    << "*   Please ensure that your BitcoinD node has txindex enabled (-txindex=1)   *\n"
+                    << "*   Please ensure that your palladiumd node has txindex enabled (-txindex=1) *\n"
                     << "******************************************************************************\n\n"
                     << "Error response was:\n\n\t" << resp.errorMessage() << "\n\n";
         };
         auto onFail = [] (RPC::Message::Id, const QString &errMsg) {
-            Warning() << "Unable to verify that BitcoinD is using txindex. Error: " << errMsg;
+            Warning() << "Unable to verify that palladiumd is using txindex. Error: " << errMsg;
         };
         // ask bitcoind for tx #1 (first tx after genesis) to ensure it has txindex enabled.
         bitcoindmgr->submitRequest(this, IdMixin::newId(), "getrawtransaction", {Util::ToHexFast(*optHash), false}, onSuccess, onError, onFail);
@@ -315,9 +315,9 @@ void Controller::on_coinDetected(const BTC::Coin detectedtype)
     if (ourtype != detectedtype) {
         // Misconfiguration -- DB says one thing and bitcoind says another. Complain and exit.
         Fatal() << "\n\n"
-                   "Coin mismatch: this database is for " << BTC::coinToName(ourtype) << " but the connected bitcoind is "
+                   "Coin mismatch: this database is for " << BTC::coinToName(ourtype) << " but the connected palladiumd is "
                 << BTC::coinToName(detectedtype) << ".\n\n"
-                   "Please either connect to the appropriate bitcoind for this database, or delete\n"
+                   "Please either connect to the appropriate palladiumd for this database, or delete\n"
                    "the datadir and resynch.\n";
     }
 }
@@ -387,7 +387,7 @@ void GetChainInfoTask::process()
                 // This may happen if for some reason bitcoind omits this info or there is a parse error.
                 // We rely on this field being >= info.blocks in later code so just enforce that invariant now.
                 info.headers = info.blocks;
-                DebugM("bitcoind did not return the expected headers field, expected headers >= blocks (headers=",
+                DebugM("palladiumd did not return the expected headers field, expected headers >= blocks (headers=",
                        map.value("headers").toString(), ", blocks=", info.blocks, ")");
             }
 
@@ -808,7 +808,7 @@ void Controller::process(bool beSilentIfUpToDate)
             // generally a bad idea anyway to begin a synch without knowing if we are on BTC (SegWit
             // extensions on deser, etc), then it's better to try again later after bitcoind tells us definitively
             // what coin we are on. Note that this branch is extremely unlikely and is only here for paranoia.
-            Warning() << "This instance has not yet received any information from bitcoind as to what coin we are"
+            Warning() << "This instance has not yet received any information from palladiumd as to what coin we are"
                          " on, aborting synch task (will retry later) ...";
             bitcoindmgr->requestBitcoinDInfoRefresh(); // give bitcoind a nudge and issue the RPC again
             genericTaskErrored();
@@ -835,9 +835,9 @@ void Controller::process(bool beSilentIfUpToDate)
             // Ensure genesis hash matches what we have in DB (post-initial sync only)
             if (const auto hashDaemon = bitcoindmgr->getBitcoinDGenesisHash(), hashDb = storage->genesisHash();
                     !hashDb.isEmpty() && !hashDaemon.isEmpty() && hashDb != hashDaemon) {
-                Fatal() << "Bitcoind reports genesis hash: \"" << hashDaemon.toHex() << "\", which differs from our "
-                        << "database: \"" << hashDb.toHex() << "\". You may have connected to the wrong bitcoind. "
-                        << "To fix this issue either connect to a different bitcoind or delete this program's datadir "
+                Fatal() << "Palladiumd reports genesis hash: \"" << hashDaemon.toHex() << "\", which differs from our "
+                        << "database: \"" << hashDb.toHex() << "\". You may have connected to the wrong palladiumd. "
+                        << "To fix this issue either connect to a different palladiumd or delete this program's datadir "
                         << "to resynch.";
                 return;
             }
@@ -850,9 +850,9 @@ void Controller::process(bool beSilentIfUpToDate)
             if (const auto dbchain = storage->getChain();
                     dbchain != normalizedChain && !normalizedChain.isEmpty() && net != BTC::Net::Invalid) {
                 if (!dbchain.isEmpty()) {
-                    Warning() << "Database had chain \"" << dbchain << "\", but bitcoind reports chain \"" << normalizedChain
+                    Warning() << "Database had chain \"" << dbchain << "\", but palladiumd reports chain \"" << normalizedChain
                               << "\".  Persisting \"" << normalizedChain << "\" to database.  Please ensure that you"
-                              << " are connected to the correct bitcoind instance!";
+                              << " are connected to the correct palladiumd instance!";
                 }
                 // save the normalized chain to the db, if we were able to grok it. Older versions of Fulcrum
                 // will expect to see it in the DB since they use it to check sanity.  Newer versions >= 1.2.7
@@ -866,7 +866,7 @@ void Controller::process(bool beSilentIfUpToDate)
                 // the blockchain.address.* methods not work. This warning will spam the log so hopefully it will not
                 // go unnoticed. I doubt anyone anytime soon will rename "main" or "test" or "regtest", but it pays
                 // to be safe.
-                Warning() << "Warning: Bitcoind reports chain: \"" << chain << "\", which is unknown to this software. "
+                Warning() << "Warning: Palladiumd reports chain: \"" << chain << "\", which is unknown to this software. "
                           << "Some protocol methods such as \"blockchain.address.*\" will not work correctly. "
                           << "Please update your software and/or report this to the developers.";
             }
@@ -892,13 +892,13 @@ void Controller::process(bool beSilentIfUpToDate)
                     }
                 } else {
                     // height ok, but best block hash mismatch.. reorg
-                    Warning() << "We have bestBlock " << tipHash.toHex() << ", but bitcoind reports bestBlock " << task->info.bestBlockhash.toHex() << "."
+                    Warning() << "We have bestBlock " << tipHash.toHex() << ", but palladiumd reports bestBlock " << task->info.bestBlockhash.toHex() << "."
                               << " Possible reorg, will rewind back 1 block and try again ...";
                     process_DoUndoAndRetry(); // attempt to undo 1 block and try again.
                     return;
                 }
             } else if (tip > sm->ht) {
-                Warning() << "We have height " << tip << ", but bitcoind reports height " << sm->ht << "."
+                Warning() << "We have height " << tip << ", but palladiumd reports height " << sm->ht << "."
                           << " Possible reorg, will rewind back 1 block and try again ...";
                 process_DoUndoAndRetry(); // attempt to undo 1 block and try again.
                 return;
@@ -976,12 +976,12 @@ void Controller::process(bool beSilentIfUpToDate)
         }
         if (tooFast) {
             // the task was too quick -- we need to cool off and let bitcoind get more blocks before proceeding
-            DebugM("bitcoind is in IBD, cooldown for ", tooFastThresh, " ", Util::Pluralize("second", tooFastThresh),
+            DebugM("palladiumd is in IBD, cooldown for ", tooFastThresh, " ", Util::Pluralize("second", tooFastThresh),
                    " to allow it to get more blocks ...");
             enablePollTimer = true;
             polltimeout = int(tooFastThresh * 1000);
         } else {
-            DebugM("bitcoind is in IBD, continuing to fetch blocks ...");
+            DebugM("palladiumd is in IBD, continuing to fetch blocks ...");
             AGAIN();
         }
     } else if (sm->state == State::Failure) {
@@ -1000,7 +1000,7 @@ void Controller::process(bool beSilentIfUpToDate)
                 // not our latest tip. Just to be sure, schedule us to run again immediately.
                 polltimeout = 0;
                 DebugM("zmq hashblock received with a (possibly) new header while we were synching, re-scheduling"
-                       " another bitcoind update immediately ...");
+                       " another palladiumd update immediately ...");
             } else
                 DebugM("zmq hashblock received while we were synching, however it matches our latest tip, ignoring ...");
         } else if (!sm->mostRecentZmqHashTxNotif.isEmpty()) {
@@ -1009,7 +1009,7 @@ void Controller::process(bool beSilentIfUpToDate)
                 // maybe have not yet seen. Just to be sure, schedule us to run again immediately.
                 polltimeout = 0;
                 DebugM("zmq hashtx received with a (possibly) new txn while we were synching, re-scheduling"
-                       " another bitcoind update immediately ...");
+                       " another palladiumd update immediately ...");
             } else
                 DebugM("zmq hashtx received while we were synching, however we have seen the txn already recently, ignoring ...");
         }
@@ -1024,7 +1024,7 @@ void Controller::process(bool beSilentIfUpToDate)
             sm.reset();  // great success!
         }
         enablePollTimer = true;
-        Warning() << "bitcoind is still downloading headers, will try again in 5 seconds";
+        Warning() << "palladiumd is still downloading headers, will try again in 5 seconds";
         polltimeout = 5 * 1000; // try again every 5 seconds
         emit synchFailure();
     } else if (sm->state == State::SynchMempool) {

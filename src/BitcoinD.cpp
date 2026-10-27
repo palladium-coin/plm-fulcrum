@@ -50,13 +50,13 @@ BitcoinDMgr::BitcoinDMgr(unsigned nClients, const BitcoinD_RPCInfo &rinf)
     setObjectName("BitcoinDMgr");
     _thread.setObjectName(objectName());
     if (!nClients)
-        throw BadArgs("The number of BitcoinD clients cannot be 0!");
+        throw BadArgs("The number of palladiumd clients cannot be 0!");
 }
 
 BitcoinDMgr::~BitcoinDMgr() {  cleanup(); }
 
 void BitcoinDMgr::startup() {
-    Log() << objectName() << ": starting " << nClients << " " << Util::Pluralize("bitcoin RPC client", nClients) << " ...";
+    Log() << objectName() << ": starting " << nClients << " " << Util::Pluralize("RPC client", nClients) << " ...";
 
     // ensure the cached results table is cleared on reconnect
     conns += connect(this, &BitcoinDMgr::gotFirstGoodConnection, this, &BitcoinDMgr::clearCachedResultsTable);
@@ -87,11 +87,11 @@ void BitcoinDMgr::startup() {
         });
         connect(client.get(), &BitcoinD::lostConnection, this, [this](AbstractConnection *c){
             // tell all extant requests being serviced by this BitcoinD about this failure
-            notifyFailForRequestsMatchingBitcoinD(c, "bitcoind connection lost");
+            notifyFailForRequestsMatchingBitcoinD(c, "palladiumd connection lost");
         });
         connect(client.get(), &QObject::destroyed, this, [this](QObject *o){
             // just in case there are any extant requests up when this has been deleted (unlikely)
-            notifyFailForRequestsMatchingBitcoinD(o, "bitcoind client deleted");
+            notifyFailForRequestsMatchingBitcoinD(o, "palladiumd client deleted");
         });
         connect(client.get(), &BitcoinD::lostConnection, this, [this](AbstractConnection *c){
             // guard against stale/old signal
@@ -232,11 +232,11 @@ void BitcoinDMgr::refreshBitcoinDNetworkInfo()
 
                     if (ok) {
                         const BitcoinDVersionParseResult res(val, subversion);
-                        DebugM("Refreshed version info from bitcoind, version: ", res.version.toString(true),
+                        DebugM("Refreshed version info from palladiumd, version: ", res.version.toString(true),
                                ", subversion: ", subversion);
                         return res;
                     } else {
-                        Warning() << "Failed to parse version info from bitcoind";
+                        Warning() << "Failed to parse version info from palladiumd";
                         return {};
                     }
                 }(bitcoinDInfo.subversion, networkInfo);
@@ -298,12 +298,12 @@ void BitcoinDMgr::refreshBitcoinDGenesisHash()
                 // quit the app here. But in the spirit of never giving up and never surrendering,
                 // we will just power through this situation with some error messages.
                 if (changed)
-                    Error() << "Error: bitcoind reports that the genesis hash has changed! Old hash: " << oldHash.toHex()
+                    Error() << "Error: palladiumd reports that the genesis hash has changed! Old hash: " << oldHash.toHex()
                             << ", new hash: " << newHash.toHex();
                 else
-                    Error() << "Error: Failed to parse genesis hash from bitcoind: " << reply.result().toString();
+                    Error() << "Error: Failed to parse genesis hash from palladiumd: " << reply.result().toString();
             } else {
-                DebugM("Refreshed genesis hash from bitcoind: ", newHash.toHex());
+                DebugM("Refreshed genesis hash from palladiumd: ", newHash.toHex());
             }
             if (changed || (ok && oldHash.isEmpty()))
                 emit gotNewGenesisHash(newHash);
@@ -395,13 +395,13 @@ void BitcoinDMgr::refreshBitcoinDZmqNotifications()
                 DebugM("getzmqnotifications: added ", transport, " socket address: ", addr);
             }
             if (badFormat)
-                Error() << "getzmqnotifications: query to bitcoind returned a result in an unexpected format";
+                Error() << "getzmqnotifications: query to palladiumd returned a result in an unexpected format";
             setZmqNotifications(zmqs);
         },
         // error
         [this](const RPC::Message &msg) {
             // TODO: offer up a conf file and/or CLI arg to suppress this warning and/or probing?
-            Warning() << "getzmqnotifications query to bitcoind failed, code: " << msg.errorCode() << ", error: "
+            Warning() << "getzmqnotifications query to palladiumd failed, code: " << msg.errorCode() << ", error: "
                       << msg.errorMessage();
             setZmqNotifications({}); // clear current, if any
             std::unique_lock g(bitcoinDInfoLock);
@@ -420,12 +420,12 @@ void BitcoinDMgr::probeBitcoinDHasUptimeRPC()
     submitRequest(this, newId(), "uptime", {},
         // success
         [this](const RPC::Message &) {
-            Debug() << "uptime: remote bitcoind has the RPC";
+            Debug() << "uptime: remote palladiumd has the RPC";
             emit detectedFastPingMethod(true);
         },
         // error -- probe basically returned a negative result (error details will be automatically logged to debug log)
         [this](const RPC::Message &) {
-            Debug() << "uptime: remote bitcoind lacks the RPC";
+            Debug() << "uptime: remote palladiumd lacks the RPC";
             emit detectedFastPingMethod(false);
         },
         // failure -- connection dropped just as we were doing this
@@ -560,7 +560,7 @@ void BitcoinDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, co
                     return; // return early -- no work to do!
                 }
             }
-            DebugM("Cached `", method, "` is ", missing ? "missing" : "old", ", proceeding to send request to bitcoind ...");
+            DebugM("Cached `", method, "` is ", missing ? "missing" : "old", ", proceeding to send request to palladiumd ...");
             optResf = [this, method, resf, maxAge = *cachedResultOkIfNotOlderThan](const RPC::Message &response) {
                 updateCachedResult(method, maxAge, response.result());
                 if (resf) resf(response);
@@ -621,7 +621,7 @@ void BitcoinDMgr::submitRequest(QObject *sender, const RPC::Message::Id &rid, co
     Util::AsyncOnObject(this, [this, context, rid, method, params] {
         auto bd = getBitcoinD();
         if (!bd) [[unlikely]] {
-            emit context->fail(rid, "Unable to find a good BitcoinD connection");
+            emit context->fail(rid, "Unable to find a good palladiumd connection");
             return;
         }
         context->bd = bd; // record which bitcoind is servicing this request for notifyFailForRequestsMatchingBitcoinD()
@@ -691,10 +691,10 @@ void BitcoinDMgr::requestTimeoutChecker()
             // or conf var bitcoind_timeout can help alleviate the situation if we get this error often.
             context->timedOut = true; // flag it as having already been handled
             ++requestTimeoutCtr; // increment counter for /stats
-            emit context->fail(it.key(), "bitcoind request timed out");
+            emit context->fail(it.key(), "palladiumd request timed out");
             DebugM(__func__, " - request id ", it.key(), " timed out after ", (Util::getTime()-context->ts)/1e3,
-                   " secs without a response from bitcoind (possibly because the connection was lost while we were"
-                   " preparing the request, or bitcoind may have hung)");
+                   " secs without a response from palladiumd (possibly because the connection was lost while we were"
+                   " preparing the request, or palladiumd may have hung)");
         }
     }
 }
@@ -828,12 +828,12 @@ void BitcoinD::on_started()
             });
         };
         conns += connect(this, &BitcoinD::lostConnection, this, [SetTimer]{
-            Log() << "Lost connection to bitcoind, will retry every 5 seconds ...";
+            Log() << "Lost connection to palladiumd, will retry every 5 seconds ...";
             SetTimer();
         });
         conns += connect(this, &BitcoinD::authFailure, this, [SetTimer, this] {
             const auto errorOption = rpcInfo.hasCookieFile() ? "rpccookie is" : "rpcuser and rpcpass are";
-            Error() << "Authentication to bitcoind rpc failed. Please check the " << errorOption << " correct and restart!";
+            Error() << "Authentication to palladiumd rpc failed. Please check the " << errorOption << " correct and restart!";
             badAuth = true;
             SetTimer();
         });

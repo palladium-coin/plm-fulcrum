@@ -1465,7 +1465,7 @@ void Storage::startup()
             throw DatabaseError("It appears that " APPNAME " was forcefully killed in the middle of committing a block to the db. "
                                 "We cannot figure out where exactly in the update process " APPNAME " was killed, so we "
                                 "cannot undo the inconsistent state caused by the unexpected shutdown. Sorry!"
-                                "\n\nThe database has been corrupted. Please delete the datadir and resynch to bitcoind.\n");
+                                "\n\nThe database has been corrupted. Please delete the datadir and resynch to palladiumd.\n");
         }
     }
 
@@ -1952,7 +1952,7 @@ bool Storage::checkFulc1xUpgradeDB()
                 if (isDirty_impl(dbin.get(), dbin->DefaultColumnFamily())) {
                     throw DatabaseError(QString("It appears that the database in \"%1\" from %2 1.x is corrupt. Cannot"
                                                 " proceed with DB upgrade. Sorry!"
-                                                "\n\nPlease delete the datadir and resynch to bitcoind.\n")
+                                                "\n\nPlease delete the datadir and resynch to palladiumd.\n")
                                             .arg(fname, APPNAME));
                 }
                 // The below throws if the 'Meta' entry is bad due to endian mismatch (since Fuclrum 1.x saved data in host endian format)
@@ -2825,13 +2825,13 @@ void Storage::loadCheckUTXOsInDB()
                 if (!txo.isValid()) {
                     throw DatabaseSerializationError("Read an invalid txo from the utxo set database."
                                                      " This may be due to a database format mismatch."
-                                                     "\n\nDelete the datadir and resynch to bitcoind.\n");
+                                                     "\n\nDelete the datadir and resynch to palladiumd.\n");
                 }
                 auto info = Deserialize<TXOInfo>(FromSlice(iter->value()));
                 if (!info.isValid())
                     throw DatabaseSerializationError(QString("Txo %1 has invalid metadata in the db."
                                                             " This may be due to a database format mismatch."
-                                                            "\n\nDelete the datadir and resynch to bitcoind.\n")
+                                                            "\n\nDelete the datadir and resynch to palladiumd.\n")
                                                      .arg(txo.toString()));
 
                 // compensate for counts being off due to historical bugs in blockchain
@@ -2869,7 +2869,7 @@ void Storage::loadCheckUTXOsInDB()
                         } else if (fail4) {
                             ts << ". Utxo amount does not match the ctxo amount in the scripthash_unspent db.";
                         }
-                        ts << "\n\nThe database has been corrupted. Please delete the datadir and resynch to bitcoind.\n";
+                        ts << "\n\nThe database has been corrupted. Please delete the datadir and resynch to palladiumd.\n";
                     }
                     throw DatabaseError(msg);
                 }
@@ -2887,7 +2887,7 @@ void Storage::loadCheckUTXOsInDB()
                     // which we also tolerate). So we tolerate being off due to the "exceptions" above.
                     std::abs(long(p->utxoCt) - long(metact)) > long(seenExceptions.size()))
                     throw DatabaseError(QString("UTXO count in meta table (%1) does not match the actual number of UTXOs in the utxoset (%2)."
-                                                "\n\nThe database has been corrupted. Please delete the datadir and resynch to bitcoind.\n")
+                                                "\n\nThe database has been corrupted. Please delete the datadir and resynch to palladiumd.\n")
                                         .arg(metact).arg(p->utxoCt.load()));
 
         }
@@ -2931,7 +2931,7 @@ void Storage::loadCheckShunspentInDB()
     std::set<TXO> seenExceptions;
 
     constexpr auto errMsg = "This may be due to either a database format mismatch or data corruption."
-                            "\n\nDelete the datadir and resynch to bitcoind.\n";
+                            "\n\nDelete the datadir and resynch to palladiumd.\n";
     size_t ctr = 0;
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         const auto &[hashx, ctxo] = extractShunspentKey(iter->key(), false);

@@ -29,7 +29,7 @@
 
 void BitcoinD_RPCInfo::setCookieFile(const QString &file)
 {
-    if (file.isEmpty()) throw BadArgs("BitcoinD cookie file cannot be the empty string");
+    if (file.isEmpty()) throw BadArgs("palladiumd cookie file cannot be the empty string");
     user.clear(), pass.clear();
     cookieFile = file;
 }
@@ -68,7 +68,7 @@ QPair<QString, QString> BitcoinD_RPCInfo::getUserPass() const
     const int colon = line.indexOf(':');
     if (colon < 0) {
         Warning() << "Cookie file '" << cookieFile << "' "
-                  << "does not appear to be a valid bitcoind cookie file (missing ':' character)";
+                  << "does not appear to be a valid palladiumd cookie file (missing ':' character)";
         return ret;
     }
 
