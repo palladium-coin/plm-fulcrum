@@ -48,6 +48,9 @@ void App::register_MetaTypes()
 
         qRegisterMetaType<QHostAddress>("QHostAddress");
 
+        // Used by the Server::broadcastTxSuccess signal (queued across threads to SrvMgr)
+        qRegisterMetaType<size_t>("size_t");
+
         qRegisterMetaType<PeerInfo>("PeerInfo");
         qRegisterMetaType<PeerInfoList>("PeerInfoList");
 
