@@ -278,7 +278,7 @@ possibly peer with this plm-fulcrum server, then please use the 'banpeer' comman
             batch = []
             if not JSON:
                 # First request is the getinfo which tells us the "coin" and "chain" we are on, which is used
-                # by the pretty formatter to output the balance as xx.xx BCH, etc.
+                # by the pretty formatter to output the balance as xx.xx PLM, etc.
                 batch.append(('getinfo', []))
             for addr in params:
                 batch.append((method, [addr]))
@@ -306,7 +306,7 @@ def query_address_handler(response_list, limit):
 
     coin_str = "(COIN UNITS)"
     if response_list:
-        # Query the coin for proper units e.g. "BCH"
+        # Query the coin for proper units e.g. "PLM"
         info = response_list[0]
         if 'chain' in info and 'coin' in info:
             del response_list[0]  # pop first item which is the getinfo reply

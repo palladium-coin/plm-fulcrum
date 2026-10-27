@@ -1,5 +1,5 @@
 % PLM-FULCRUM(1) Version 0.1.0 | plm-fulcrum Manual
-% Fulcrum was written by Calin Culianu (cculianu); Palladium (PLM) adaptation by Davide Grilli
+% plm-fulcrum was written by Calin Culianu (cculianu); Palladium (PLM) adaptation by Davide Grilli
 % October 27, 2026
 
 # NAME
@@ -13,7 +13,7 @@
 DESCRIPTION
 ===========
 
-`plm-fulcrum` requires a `palladiumd` instance running either on `testnet` or `mainnet` (or `regtest` for testing), which you must tell it about via the CLI options or via the config file. You also need to tell it what port(s) to listen on and optionally what SSL certificates to use (if using SSL).
+`plm-fulcrum` requires a `palladiumd` instance running on `mainnet` (or `regtest` for testing), which you must tell it about via the CLI options or via the config file. You also need to tell it what port(s) to listen on and optionally what SSL certificates to use (if using SSL).
 
 
 **NOTE:**
@@ -21,12 +21,11 @@ Electrum-based wallets generally no longer connect to non-SSL servers, so you sh
 
 It is recommended you specify a data dir (`-D` via CLI or `datadir=` via config file)
 on an SSD drive for best results.
-Synching against `testnet` should take you about 10-20 minutes (more on slower
-machines), and mainnet can take anywhere from 4 hours to 20+ hours, depending on
-machine and drive speed. I have not tried synching against mainnet on an HDD and
-it will probably take **days** if you are lucky.
+Synching against mainnet (about 545,000 blocks) took roughly 2 minutes on a fast
+machine with an SSD (measured with the node on the same host); slower machines
+and drives will take longer. I have not tried synching on an HDD.
 
-Once the server finishes synching it will behave like an ElectronX/ElectrumX server and it can receive requests from Electrum-protocol clients.
+Once the server finishes synching it will behave like an ElectrumX server and it can receive requests from Electrum-protocol clients.
 
 # OPTIONS
 
@@ -116,10 +115,10 @@ Once the server finishes synching it will behave like an ElectronX/ElectrumX ser
 :   Corresponds to the configuration file variable "palladiumd_clients". The number of simultaneous RPC clients that we spawn to connect to palladiumd (default: 3). If you raise this value from the default, be sure to also specify the option `rpcthreads=` to palladiumd so that there are enough threads to accommodate the clients we spawn, otherwise you may get errors from palladiumd.
 
 --compact-dbs
-:   If specified, Fulcrum will compact all databases on startup. The compaction process reduces database disk space usage by removing redundant/unused data. Note that rocksdb normally compacts the databases in the background while Fulcrum is running, so using this option to explicitly compact the database files on startup is not strictly necessary.
+:   If specified, plm-fulcrum will compact all databases on startup. The compaction process reduces database disk space usage by removing redundant/unused data. Note that rocksdb normally compacts the databases in the background while plm-fulcrum is running, so using this option to explicitly compact the database files on startup is not strictly necessary.
 
 --pidfile
-:   If specified, Fulcrum will write its process ID to this file on startup. Useful for integration with monitoring software.
+:   If specified, plm-fulcrum will write its process ID to this file on startup. Useful for integration with monitoring software.
 
 --upnp
 :   Use UPnP to tell your router to automatically allow incoming connections for all all TCP, SSL, WS, and WSS ports. To explicitly disable UPnP, use the CLI arg --no-upnp. Default is: disabled.
