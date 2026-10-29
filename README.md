@@ -41,7 +41,7 @@ GPLv3. See the included `LICENSE.txt` file or [visit gnu.org and read the licens
 
 ### Quickstart
 
-1. Build the server from source (see [How To Compile](#how-to-compile)) or with the static Docker build (see below).
+1. Build the server from source (see [How To Compile](#how-to-compile)), with the static Docker build (see below), or run it with [Docker Compose](#running-with-docker-compose).
 2. Verify that the binary runs on your system by executing the binary with `./plm-fulcrum -h` to see the CLI options.
 3. Setup a configuration file and to point plm-fulcrum to your `palladiumd` JSON-RPC server, specify listening ports, TLS certificates, etc.  See: [doc/plm-fulcrum-example-config.conf](doc/plm-fulcrum-example-config.conf) and/or [doc/plm-fulcrum-quick-config.conf](doc/plm-fulcrum-quick-config.conf)
 4. Also see this section below on [Running plm-fulcrum](#running-plm-fulcrum).
@@ -143,6 +143,22 @@ The first argument to the script is the platform to build (in this case
     `$ GIT_REPO=$(pwd) contrib/build/build.sh linux main`
 
 ---
+
+### Running with Docker Compose
+
+plm-fulcrum can run in a container on the same Docker network as the Palladium node (`palladium`), reaching it by its
+container name, with its data in `~/.plm-fulcrum` on the host. In short, after starting the node:
+
+```
+mkdir -p ~/.plm-fulcrum
+cp contrib/docker/plm-fulcrum.conf.example ~/.plm-fulcrum/plm-fulcrum.conf   # then set rpcuser / rpcpassword
+docker compose -f contrib/docker/docker-compose.yml up -d --build
+docker compose -f contrib/docker/docker-compose.yml logs -f                  # wait for "up-to-date"
+```
+
+Ports `50001` (tcp) and `50002` (ssl) are published on the host. See [contrib/docker/README.md](contrib/docker/README.md)
+for the full steps, the settings (data directory, user, ports), how to open the server to other machines, and
+troubleshooting.
 
 ### Running plm-fulcrum
 

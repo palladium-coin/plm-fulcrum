@@ -1,0 +1,12 @@
+.git
+# local build products: they must not leak into the image build (make would reuse them)
+*.o
+moc_*
+qrc_*
+Makefile
+moc_predefs.h
+/plm-fulcrum
+/dist
+/build.log
+/bug.md
+contrib/build/*/work*

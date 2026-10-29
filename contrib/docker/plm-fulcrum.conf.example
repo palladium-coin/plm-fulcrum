@@ -1,0 +1,14 @@
+# Copy to ~/.plm-fulcrum/plm-fulcrum.conf (the data directory mounted by docker-compose.yml) and set the node's RPC
+# credentials.
+# The data directory, certificate and key are set by the container entrypoint: don't add them here.
+
+# The node's container name on the "palladium" network, and its RPC port.
+palladiumd = docker-palladiumcore:2332
+rpcuser = CHANGE_ME
+rpcpassword = CHANGE_ME
+
+# Listen on all interfaces of the container; the ports are published by docker-compose.yml.
+tcp = 0.0.0.0:50001
+ssl = 0.0.0.0:50002
+
+peering = false

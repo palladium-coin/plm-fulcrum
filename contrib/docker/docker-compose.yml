@@ -1,0 +1,30 @@
+# plm-fulcrum next to the Palladium node, on the node's "palladium" Docker network.
+# The node is started by its own compose file (palladiumcore/docker/docker-compose.yml), which creates that network;
+# start the node first. Setup and usage: contrib/docker/README.md
+services:
+  plm-fulcrum:
+    build:
+      context: ../..
+      dockerfile: contrib/docker/Dockerfile
+    image: plm-fulcrum:local
+    container_name: plm-fulcrum
+    restart: unless-stopped
+    # the entrypoint appends -D (data dir) and the TLS certificate/key options
+    command: ["plm-fulcrum", "/data/plm-fulcrum.conf"]
+    ports:
+      - "50001:50001"   # tcp. To listen on localhost only: "127.0.0.1:50001:50001"
+      - "50002:50002"   # ssl (self-signed certificate generated in the data directory, see README)
+    volumes:
+      # data directory: database, plm-fulcrum.conf, certificate and key (like ~/.palladium for the node)
+      - ${PLM_FULCRUM_DATADIR:-~/.plm-fulcrum}:/data
+    # owner of the data directory: PLM_UID/PLM_GID if it is not user 1000
+    user: "${PLM_UID:-1000}:${PLM_GID:-1000}"
+    environment:
+      HOME: /data
+    stop_grace_period: 2m   # lets the database flush on shutdown
+    networks: [palladium]
+
+networks:
+  palladium:
+    external: true
+    name: palladium
