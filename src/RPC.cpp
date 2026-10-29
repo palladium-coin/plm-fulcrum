@@ -417,6 +417,14 @@ namespace RPC {
             // otherwise produce some Json right now and send it out to the client
             json = m.toJsonUtf8();
         }
+        if (const auto maxBuf = maxBuffer(); maxBuf > 0 && json.size() > maxBuf) [[unlikely]] {
+            // A reply larger than max_buffer would make do_write() disconnect the client on its next write.
+            // Send a JSON-RPC error instead so the connection survives and the client can react.
+            Warning() << __func__ << ": " << prettyName() << " -- reply of " << json.size()
+                      << " bytes exceeds max_buffer (" << maxBuf << "), sending error instead";
+            json = Message::makeError(Code_App_LimitExceeded, "response too large", reqid, v1).toJsonUtf8();
+            ++nErrorsSent;
+        }
         if (json.isEmpty()) [[unlikely]] {
             Error() << __func__ << ": Unable to generate result JSON! FIXME!";
             return;
@@ -1275,7 +1283,23 @@ namespace RPC {
         } else if (batch.isComplete()) {
             if constexpr (debugBatchExtra) DebugM(objectName(), ": completed");
             QVariantList l;
+            // Keep the aggregate reply within max_buffer: once the budget is used up, answer the remaining items with an
+            // error so the connection isn't dropped by do_write() (see _sendResult for the single-request case).
+            const qint64 maxBuf = conn.maxBuffer();
+            qint64 budget = maxBuf;
             for (const auto &msg : std::as_const(batch.responses)) {
+                if (maxBuf > 0) {
+                    const auto sz = msg.isError() ? qint64(0) : qint64(msg.toJsonUtf8().size());
+                    if (sz > budget) [[unlikely]] {
+                        Warning() << __func__ << ": " << conn.prettyName() << " -- batch reply item of " << sz
+                                  << " bytes exceeds max_buffer (" << maxBuf << "), sending error instead";
+                        const Message err = Message::makeError(Code_App_LimitExceeded, "response too large", msg.id, conn.v1);
+                        ++conn.nErrorsSent;
+                        l.push_back(err.data);
+                        continue;
+                    }
+                    budget -= sz;
+                }
                 if (msg.isError()) ++conn.nErrorsSent;
                 else ++conn.nResultsSent;
                 l.push_back(msg.data);
