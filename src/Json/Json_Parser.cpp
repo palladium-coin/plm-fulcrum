@@ -516,6 +516,7 @@ jtokentype getJsonToken(QByteArray &tokenVal, unsigned &consumed, const char *ra
 /// Note: The QByteArrays in this struct may be "views of" or shallow copies of the original `bytes` buffer
 /// being parsed (e.g. via QByteArray::fromRawData) -- so when producing the final result we need to always
 /// take deep copies of any QByteArray data.
+struct Entry;
 struct Container {
     enum Typ {
         Null, BoolFalse, BoolTrue, Num, Str, Arr, Obj
@@ -533,18 +534,30 @@ struct Container {
     // that we target.
     QByteArray data; // only for Num, Str -- may be a shallow copy pointing into the `bytes` QByteArray passed to Json::detail::parse()
     std::vector<Container> values; // only for Arr
-    // Note that the below pair.first QByteArray may be a shallow copy pointing into the `bytes` QByteArray
-    std::vector<std::pair<QByteArray, Container>> entries; // only for Obj
-    void clear() { data.clear(); values.clear(); entries.clear(); typ = Null; }
-    void setArr() { clear(); typ = Arr; }
-    void setObj() { clear(); typ = Obj; }
-    void setBool(bool b) { clear(); typ = b ? BoolTrue: BoolFalse; }
+    // Note that the below Entry.first QByteArray may be a shallow copy pointing into the `bytes` QByteArray
+    // (Entry is used instead of std::pair<QByteArray, Container> because libstdc++ 13/14 + clang cannot
+    // handle a std::pair of the still-incomplete Container: the default-constructibility check recurses.)
+    std::vector<Entry> entries; // only for Obj
+    void clear();
+    void setArr();
+    void setObj();
+    void setBool(bool b);
 
     /// Recursively scours this container and its sub-containers and builds the proper QVariant / nesting.
     /// Unlike this intermediate object, the resultant QVariant's string data (if any) will always be deep
     /// copies of the original string data that came in.
     QVariant toVariant() const;
 };
+
+struct Entry {
+    QByteArray first;
+    Container second;
+};
+
+inline void Container::clear() { data.clear(); values.clear(); entries.clear(); typ = Null; }
+inline void Container::setArr() { clear(); typ = Arr; }
+inline void Container::setObj() { clear(); typ = Obj; }
+inline void Container::setBool(bool b) { clear(); typ = b ? BoolTrue: BoolFalse; }
 
 /// recursively scours this container and its sub-containers and builds the proper QVariant / nesting
 QVariant Container::toVariant() const {
@@ -887,9 +900,7 @@ bool parse(QVariant &out, const QByteArray &bytes, ParserBackend backend)
         case JTOK_STRING: {
             if (expect(OBJ_NAME)) {
                 Container *top = stack.back();
-                top->entries.emplace_back(std::piecewise_construct,
-                                          std::forward_as_tuple(std::move(tokenVal)),
-                                          std::forward_as_tuple());
+                top->entries.push_back(Entry{std::move(tokenVal), {}});
                 clearExpect(OBJ_NAME);
                 setExpect(COLON);
             } else {
