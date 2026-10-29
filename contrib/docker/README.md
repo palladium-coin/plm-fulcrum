@@ -42,7 +42,7 @@ All commands are run from the root of this repository.
    docker compose -f contrib/docker/docker-compose.yml up -d --build
    ```
 
-   The first build compiles the server and takes a few minutes.
+   The first build compiles the server and takes about ten minutes. Later builds reuse the cached layers.
 
 4. **Follow the log until the server is synchronized:**
 
@@ -50,8 +50,8 @@ All commands are run from the root of this repository.
    docker compose -f contrib/docker/docker-compose.yml logs -f
    ```
 
-   The first start downloads and indexes the whole chain from the node. When the log shows `up-to-date`, the server is
-   ready. Clients can connect to port `50001` (tcp) or `50002` (ssl).
+   The first start downloads and indexes the whole chain from the node (under two minutes on the machine used to test
+   this, with the node on the same host). When the log shows `up-to-date`, the server is ready. Clients can connect to port `50001` (tcp) or `50002` (ssl).
 
 ## Day to day
 
