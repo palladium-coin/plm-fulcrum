@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-This repo is named **plm-fulcrum** (remote `origin`, branches `main` and `dev`). It is a fork of [Fulcrum](https://github.com/cculianu/Fulcrum) (C++20 / Qt Electrum-protocol SPV server, forked from upstream commit `02e22da`), adapted to **Palladium (PLM)**. The PLM work lives on the `main` branch; `master` tracks upstream. Keep GPLv3 and upstream copyright notices intact (see `LICENSE.txt`).
+This repo is named **plm-fulcrum** (remote `origin`, branches `main` and `dev`). It is a fork of [Fulcrum](https://github.com/cculianu/Fulcrum) (C++20 / Qt Electrum-protocol SPV server, forked from upstream commit `02e22da`), adapted to **Palladium (PLM)**. The PLM work lives on the `main` branch; `master` tracks upstream. Keep GPLv3 and upstream copyright notices intact (`LICENSE.txt` is the pure GPLv3 text so GitHub detects it; the copyright/fork notice is in `NOTICE`).
 
 Fulcrum indexes a full node's chain into RocksDB and serves the Electrum protocol 1.6 over TCP/SSL/WS/WSS. PLM is the **only** supported coin: BCH, BTC, LTC/MWEB, CashTokens, DSProof, RPA and the extra nets have been removed. PLM is a Bitcoin Core fork (SegWit, Taproot, no CashTokens). Version is `0.1.0` (`VERSION` in `src/Common.h`, bumped with `contrib/bump-version.sh <ver>`); `APPNAME` is `plm-fulcrum`; the binaries are `plm-fulcrum` and `plm-fulcrum-admin` (a Python script). Options and config keys are named `palladiumd*` (`--palladiumd`/`-b`, `palladiumd_tls`, ...); internal classes such as the `BTC` namespace keeps its upstream name; the node RPC classes are `PalladiumDMgr`/`PalladiumD` (`src/PalladiumD.*`).
 
@@ -54,7 +54,7 @@ The main flow spans several files:
 5. `Servers.cpp`: the donation address is empty unless `donation=` is configured.
 6. Default RPC port in example configs is 2332 (testnet 12332).
 
-The PLM full node (`palladiumd`, source in `~/palladiumcore`) does not support `submitpackage` or `getindexinfo`. Genesis hash is read from the node at runtime (`getblockhash 0`), never hardcoded. Remaining work (naming cleanup, docs, final verification) is tracked in `TODO.md`.
+The PLM full node (`palladiumd`, source in `~/palladiumcore`) does not support `submitpackage` or `getindexinfo`. Genesis hash is read from the node at runtime (`getblockhash 0`), never hardcoded.
 
 ## Environment quirks
 
@@ -71,4 +71,4 @@ The PLM full node (`palladiumd`, source in `~/palladiumcore`) does not support `
 
 ## Testing against a real client
 
-PalladiumWallet CLI (`~/PalladiumWallet`, `dotnet run --project src/Cli -- sync --server 127.0.0.1:50001 --net mainnet|regtest --file <path>`) works as an end-to-end check; always pass `--file` so the user's real wallet is not touched. Known bug: replies larger than `max_buffer` (8 MB, e.g. an address with ~97k txs) disconnect the client (see `bug.md` on `dev`).
+PalladiumWallet CLI (`~/PalladiumWallet`, `dotnet run --project src/Cli -- sync --server 127.0.0.1:50001 --net mainnet|regtest --file <path>`) works as an end-to-end check; always pass `--file` so the user's real wallet is not touched. Replies larger than `max_buffer` (8 MB, e.g. an address with ~97k txs) get a JSON-RPC error instead of dropping the client (fixed in `487e1a9`).

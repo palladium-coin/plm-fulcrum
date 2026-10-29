@@ -72,7 +72,7 @@ exit 0
 
 %files
 %doc README.md
-%license LICENSE.txt
+%license LICENSE.txt NOTICE
 %{_mandir}/man1/plm-fulcrum.1*
 %config(noreplace) %attr(640, root, plm-fulcrum) %{_sysconfdir}/plm-fulcrum.conf
 %{_bindir}/plm-fulcrum
@@ -81,7 +81,7 @@ exit 0
 
 %files admin
 %doc README.md
-%license LICENSE.txt
+%license LICENSE.txt NOTICE
 %{_bindir}/plm-fulcrum-admin
 
 %changelog
