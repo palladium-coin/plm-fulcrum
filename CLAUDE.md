@@ -27,6 +27,8 @@ Tests/benchmarks are compiled in only when `DEFINES += ENABLE_TESTS` is uncommen
 
 There is no linter. Tests are registered at namespace scope with `App::registerTest(...)` / `registerBench(...)` (`src/App.h`), spread across `src/Json/tests.cpp`, `src/bitcoin/test.cpp` and `src/tests/`. Standalone programs in `test/` are not part of the build.
 
+CI (`.github/workflows/test.yml`, on push to `main`/`dev` and PRs) runs: tests with g++-13 and clang++-17 (`qmake DEFINES+=ENABLE_TESTS`, `--test all`), release build + smoke test, lcov coverage (needs `-fprofile-update=atomic`, tests are multithreaded), and a build of `contrib/docker/Dockerfile`. It does not publish images or releases. Code must compile with both g++-13 and clang++-17 (libstdc++ 13/14): check a file quickly with `clang++-18 -std=c++20 -fsyntax-only -fPIC -Isrc -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtCore <file>`.
+
 Run against a node: see `doc/plm-fulcrum-example-config.conf`. The node must have `txindex=1` and not be pruned; `zmqpubhashblock` is recommended.
 
 ## Architecture
@@ -63,6 +65,8 @@ The PLM full node (`palladiumd`, source in `~/palladiumcore`) does not support `
 - Static build without pushing: `GIT_REPO=$PWD script -qfec "contrib/build/build.sh linux main" log` (needs a TTY; its last step fails on root-owned files, the binary stays in `contrib/build/linux/work/built/`, remove `work/` with a root docker run).
 - Docker node `docker-palladiumcore` (net `palladium`, `172.18.0.2:2332`, user `username`) is the production mainnet node: PLM has no testnet, use mainnet or regtest. For regtest, stop it, edit `~/.palladium/palladium.conf` (network-specific options like `port`, `rpcport`, `rpcbind` go in `[main]` and `[regtest]`) and restore it afterwards. If one ZMQ address fails to bind, Core disables all of them.
 - Qt queued signals need their argument types registered in `src/register_MetaTypes.cpp` (e.g. `size_t`).
+- Don't put `std::pair<X, T>` (or similar) inside `T`'s own members while `T` is incomplete: clang + libstdc++ 13/14 recurse in the default-constructibility check (see `Entry` in `src/Json/Json_Parser.cpp`).
+- CI logs: `gh run list -R palladium-coin/plm-fulcrum`, then `gh api repos/palladium-coin/plm-fulcrum/actions/jobs/<job-id>/logs | grep -i error` (`gh run view --log-failed` only works once the whole run has finished). Claude has no GitHub credentials for `git push` (HTTPS); the user pushes.
 - The persisted coin string `"PLM"` and the `nBitcoinDRequests` getinfo key are kept on purpose; the node RPC classes are `PalladiumD*`.
 
 ## Testing against a real client
