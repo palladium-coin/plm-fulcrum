@@ -4,7 +4,7 @@ Release: {{{ git_repo_version }}}%{?dist}
 Summary: A fast & nimble SPV server for Palladium (PLM)
 
 License:    GPLv3
-URL:        ssh://git@santantonio.sytes.net:2223/davide/plm-fulcrum
+URL:        https://github.com/palladium-coin/plm-fulcrum
 VCS:        {{{ git_repo_vcs }}}
 
 Source:     {{{ GIT_DIRTY=1 git_repo_pack }}}
