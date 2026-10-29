@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEPS: qtbase5-dev libbz2-dev zlib1g-dev libzmq3-dev pkg-config ccache
+
+jobs:
+  test:
+    name: Tests (${{ matrix.cxx }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cxx: [g++-13, clang++-17]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y $DEPS g++-13 clang-17
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-test-${{ matrix.cxx }}-${{ github.sha }}
+          restore-keys: ccache-test-${{ matrix.cxx }}-
+
+      - name: Build (tests enabled)
+        run: |
+          qmake DEFINES+=ENABLE_TESTS QMAKE_CXX="ccache ${{ matrix.cxx }}" QMAKE_LINK=${{ matrix.cxx }}
+          make -j"$(nproc)"
+
+      - name: Run tests
+        run: ./plm-fulcrum --test all
+
+  release:
+    name: Release build and smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y $DEPS g++-13
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-release-${{ github.sha }}
+          restore-keys: ccache-release-
+
+      - name: Build
+        run: |
+          qmake QMAKE_CXX="ccache g++-13" QMAKE_LINK=g++-13
+          make -j"$(nproc)"
+
+      - name: Smoke test
+        run: |
+          ./plm-fulcrum --version
+          ./plm-fulcrum --help > /dev/null
+          python3 -I -m py_compile plm-fulcrum-admin
+          python3 -I plm-fulcrum-admin --help > /dev/null
+
+      - name: Config examples are parseable
+        run: |
+          for f in doc/plm-fulcrum-example-config.conf doc/plm-fulcrum-quick-config.conf; do
+            grep -q '^palladiumd' "$f" || { echo "$f has no palladiumd* keys"; exit 1; }
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plm-fulcrum-linux-x86_64
+          path: |
+            plm-fulcrum
+            plm-fulcrum-admin
+
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y $DEPS g++-13 lcov
+
+      - name: Build (instrumented)
+        run: |
+          qmake DEFINES+=ENABLE_TESTS CONFIG+=debug CONFIG-=release QMAKE_CXX=g++-13 QMAKE_LINK=g++-13 \
+                QMAKE_CXXFLAGS+="--coverage -O0" QMAKE_CFLAGS+="--coverage -O0" QMAKE_LFLAGS+="--coverage"
+          make -j"$(nproc)"
+
+      - name: Run tests
+        run: ./plm-fulcrum --test all
+
+      - name: Collect coverage
+        run: |
+          lcov --capture --directory . --gcov-tool gcov-13 --output-file coverage.info --ignore-errors mismatch,inconsistent,unsupported
+          lcov --remove coverage.info '/usr/*' '*/staticlibs/*' '*/moc_*' '*/qrc_*' --output-file coverage.info --ignore-errors unused,inconsistent
+          lcov --list coverage.info --ignore-errors inconsistent | tee coverage.txt
+          genhtml coverage.info --output-directory coverage-html --ignore-errors inconsistent,category
+          { echo '### Coverage'; echo '```'; tail -n 3 coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage-html
+
+  docker:
+    name: Docker image build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -f contrib/docker/Dockerfile --build-arg MAKEFLAGS=-j"$(nproc)" -t plm-fulcrum:ci .
+
+      - name: Smoke test image
+        run: docker run --rm --entrypoint plm-fulcrum plm-fulcrum:ci --version
