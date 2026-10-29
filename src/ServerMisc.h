@@ -30,7 +30,7 @@ namespace ServerMisc
     /// Used in various places to rejects old clients or incompatible peers.
     inline constexpr Version MinProtocolVersion{1, 4, 0}, MaxProtocolVersion{1, 6, 0};
     extern const QString AppVersion,  ///< in string form suitable for sending in protocol or banner e.g. "2.0"
-                         AppSubVersion; ///< e.g. "Fulcrum 2.0"
+                         AppSubVersion; ///< e.g. "plm-fulcrum 0.1.0"
 
     /// The amount of time we wait before initiating auto-kick when the globalSubsLimitReached signal has been asserted by a Server instance.
     inline constexpr double kMaxSubsAutoKickDelaySecs = 0.25;

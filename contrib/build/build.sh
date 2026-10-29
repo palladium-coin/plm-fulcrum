@@ -58,25 +58,25 @@ case "$plat" in
     "windows"|"win")
         [ "${arch}" = "amd64" ] || fail "Cannot use platform \"$plat\" with \"$arch\""
         plat=win  # normalize to 'win'
-        docker_img_name="fulcrum-builder/qt6:windows"
-        docker_cont_name="fulcrum_cont_qt6_windows_$$"
+        docker_img_name="plm-fulcrum-builder/qt6:windows"
+        docker_cont_name="plm_fulcrum_cont_qt6_windows_$$"
         ;;
     "linux"|"lin")
         [ "${arch}" = "amd64" ] || fail "Cannot use platform \"$plat\" with \"$arch\"; please use \"linux_ub20\" instead"
         plat=linux
-        docker_img_name="fulcrum-builder/qt6:linux"
-        docker_cont_name="fulcrum_cont_qt6_linux_$$"
+        docker_img_name="plm-fulcrum-builder/qt6:linux"
+        docker_cont_name="plm_fulcrum_cont_qt6_linux_$$"
         ;;
     "linux_ub22"|"newlinux"|"newlin"|"lin_ub22")
         plat=linux
-        docker_img_name="fulcrum-builder/qt6:linux_ub22${arch_suffix}"
-        docker_cont_name="fulcrum_cont_qt6_linux_ub22${arch_suffix}_$$"
+        docker_img_name="plm-fulcrum-builder/qt6:linux_ub22${arch_suffix}"
+        docker_cont_name="plm_fulcrum_cont_qt6_linux_ub22${arch_suffix}_$$"
         suffix="_ub22"
         ;;
     "linux_ub20"|"lin_ub20")
         plat=linux
-        docker_img_name="fulcrum-builder/qt6:linux_ub20${arch_suffix}"
-        docker_cont_name="fulcrum_cont_qt6_linux_ub20${arch_suffix}_$$"
+        docker_img_name="plm-fulcrum-builder/qt6:linux_ub20${arch_suffix}"
+        docker_cont_name="plm_fulcrum_cont_qt6_linux_ub20${arch_suffix}_$$"
         suffix="_ub20"
         ;;
     "linux_ub16"|"oldlinux"|"oldlin"|"lin_ub16")
@@ -103,7 +103,7 @@ rm -fr "$workdir"
 mkdir -p "$workdir"
 pushd "$workdir" 1> /dev/null
 
-# Checkout Fulcrum @ $tag
+# Checkout plm-fulcrum @ $tag
 info "Checking out $PACKAGE: $GIT_REPO [$tag] ..."
 git clone -b "$tag" "$GIT_REPO" "$PACKAGE" || fail "Could not clone repository for [$tag]"
 cd "$PACKAGE"

@@ -5,7 +5,7 @@
 set -e  # Exit on error
 
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-    echo "Please pass Fulcrum, rocksdb, jemalloc, and miniupnpc dirnames as the four args"
+    echo "Please pass plm-fulcrum, rocksdb, jemalloc, and miniupnpc dirnames as the four args"
     exit 1
 fi
 
@@ -86,15 +86,15 @@ USE_RTTI=1 PORTABLE=1 DEBUG_LEVEL=0 make static_lib -j`nproc` V=1 \
 info "Stripping librocksdb.a ..."
 strip -g librocksdb.a || fail "Could not strip librocksdb.a"
 
-info "Copying librocksdb.a to Fulcrum directory ..."
+info "Copying librocksdb.a to plm-fulcrum directory ..."
 ROCKSDB_LIBDIR="$top"/"$PACKAGE"/staticlibs/rocksdb/bin/custom_linux  # prevents -dirty git commit hash
 ROCKSDB_INCDIR="$top"/"$PACKAGE"/staticlibs/rocksdb/include
 mkdir -p "${ROCKSDB_LIBDIR}" || fail "Could not create directory ${ROCKSDB_LIBDIR}"
 cp -fpva librocksdb.a "${ROCKSDB_LIBDIR}" || fail "Could not copy librocksdb.a"
-printok "RocksDB built and moved to Fulcrum staticlibs directory"
+printok "RocksDB built and moved to plm-fulcrum staticlibs directory"
 # /RocksDB
 
-cd "$top"/"$PACKAGE" || fail "Could not chdir to Fulcrum dir"
+cd "$top"/"$PACKAGE" || fail "Could not chdir to plm-fulcrum dir"
 
 # This is used by the Dockerfile for the regular Linux build for now to "force" linking to static libssl
 if [ -n "$FORCE_STATIC_SSL" ]; then
@@ -105,7 +105,7 @@ if [ -n "$FORCE_STATIC_SSL" ]; then
     mv -vf "${SSL_LDIR}"/libcrypto*.so* "${SSL_LDIR}"/libssl*.so* /tmp/ssl_dynlibs/. || fail "Could not move libs"
 fi
 
-info "Building Fulcrum ..."
+info "Building plm-fulcrum ..."
 git config --global --add safe.directory "$top"/"$PACKAGE"  # Needed for some versions of git to not complain
 mkdir build && cd build || fail "Could not create/change-to build/"
 if [ -n "${LDFLAGS}" ]; then

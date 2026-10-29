@@ -100,13 +100,13 @@ Once the server finishes synching it will behave like an ElectrumX server and it
 :   The number of seconds for the palladiumd poll interval. Palladiumd is polled once every `polltime` seconds to detect mempool and blockchain changes. This value must be at least 0.5 and cannot exceed 30. If not specified, defaults to 2 seconds.
 
 --ts-format <keyword>
-:   Specify log timestamp format, one of: "none", "uptime", "localtime", or "utc". If unspecified, default is "localtime" (previous versions of Fulcrum always logged using "uptime").
+:   Specify log timestamp format, one of: "none", "uptime", "localtime", or "utc". If unspecified, default is "localtime".
 
 --tls-disallow-deprecated
 :   If specified, restricts the TLS protocol used by the server to non-deprecated v1.2 or newer, disallowing connections from clients requesting TLS v1.1 or earlier. This option applies to all SSL and WSS ports server-wide.
 
 --no-simdjson
-:   If specified, disable the fast simdjson backend for JSON parsing. This parser is over 2x faster than the original parser, and is enabled by default as of Fulcrum version 1.3.0.
+:   If specified, disable the fast simdjson backend for JSON parsing. This parser is over 2x faster than the original parser, and is enabled by default.
 
 --bd-timeout
 :   Corresponds to the configuration file variable "palladiumd_timeout". The number of seconds to wait for unanswered palladiumd requests before we consider them as having timed-out (default: 30). You may wish to set this higher than the default if you see "palladiumd request timed out" appear in the log.
@@ -125,9 +125,6 @@ Once the server finishes synching it will behave like an ElectrumX server and it
 
 --db_mem <MB>
 :   Specify roughly the maximum amount of memory to give to rocksb. Larger values offer better performance, at the expense of memory consumption. Specify a floating-point or integer value in MiB (1 MiB = 1048576 bytes). Default is: 1024.0.
-
---db-upgrade
-:   Enable Fulcrum 1.x -> 2.x DB upgrade. Use this option the first time you install Fulcrum 2.x if you wish to upgrade the already-synched 1.x datadir to the new 2.x format.
 
 --dump-sh <outputfile>
 :   *This is an advanced debugging option*. Dump script hashes. If specified, after the database is loaded, all of the script hashes in the database will be written to outputfile as a JSON array.

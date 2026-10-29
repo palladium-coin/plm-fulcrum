@@ -1,7 +1,7 @@
 # Taken from https://github.com/fffaraz/docker-qt
 # Example usage:
-#   $ docker build --force-rm -t fulcrum-builder/qt6:windows .
-#   $ docker run --rm -it -v $(pwd):/work fulcrum-builder/qt6:windows
+#   $ docker build --force-rm -t plm-fulcrum-builder/qt6:windows .
+#   $ docker run --rm -it -v $(pwd):/work plm-fulcrum-builder/qt6:windows
 FROM ubuntu:jammy
 LABEL maintainer="Calin Culianu <calin.culianu@gmail.com>"
 ENTRYPOINT ["/bin/bash"]

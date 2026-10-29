@@ -5,7 +5,7 @@
 set -e  # Exit on error
 
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-    echo "Please pass Fulcrum, rocksdb, jemalloc, and miniupnpc dirnames as the four args"
+    echo "Please pass plm-fulcrum, rocksdb, jemalloc, and miniupnpc dirnames as the four args"
     exit 1
 fi
 
@@ -96,14 +96,14 @@ if ((! DEBUG_BUILD)); then
     x86_64-w64-mingw32.static-strip -g librocksdb.a || fail "Could not strip librocksdb.a"
 fi
 
-info "Copying librocksdb.a to Fulcrum directory ..."
+info "Copying librocksdb.a to plm-fulcrum directory ..."
 ROCKSDB_LIBDIR="$top"/"$PACKAGE"/staticlibs/rocksdb/bin/custom_win64  # prevents -dirty git commit hash
 ROCKSDB_INCDIR="$top"/"$PACKAGE"/staticlibs/rocksdb/include
 mkdir -p "${ROCKSDB_LIBDIR}" || fail "Could not create directory ${ROCKSDB_LIBDIR}"
 cp -fpva librocksdb.a "${ROCKSDB_LIBDIR}" || fail "Could not copy librocksdb.a"
-printok "RocksDB built and moved to Fulcrum staticlibs directory"
+printok "RocksDB built and moved to plm-fulcrum staticlibs directory"
 
-cd "$top"/"$PACKAGE" || fail "Could not chdir to Fulcrum dir"
+cd "$top"/"$PACKAGE" || fail "Could not chdir to plm-fulcrum dir"
 
 if ((DEBUG_BUILD)); then
     dbg_opts="CONFIG+=debug CONFIG-=release"
@@ -115,7 +115,7 @@ else
     out_dir="release"
 fi
 
-info "Building Fulcrum ${dbg_blurb} ..."
+info "Building plm-fulcrum ${dbg_blurb} ..."
 git config --global --add safe.directory "$top"/"$PACKAGE"  # Needed for some versions of git to not complain
 mkdir build && cd build || fail "Could not create/change-to build/"
 

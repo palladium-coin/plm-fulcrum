@@ -158,7 +158,7 @@ struct PeerInfo
     Version protocolVersion; ///< may originally come from json or be empty -- is populated/reverified later after connection to peer
     bool preferSsl = false; ///< if true, when we connect, we prefer the ssl port; gets latched to true if ssl && tcp are set, and also we failed on the TCP port firt time.
 
-    QString subversion; ///< if we actually managed to connect to the server, its subversion string e.g. "Fulcrum 1.0", or may come initially from features dict
+    QString subversion; ///< if we actually managed to connect to the server, its subversion string e.g. "plm-fulcrum 0.1.0", or may come initially from features dict
     /// These get populated if we managed to connect to the server, or if the server's info came from  a features dictionary
     QByteArray genesisHash; ///< if known, may be empty, may come from features map
     Version protocolMin,
