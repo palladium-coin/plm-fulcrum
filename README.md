@@ -169,7 +169,7 @@ container name, with its data in `~/.plm-fulcrum` on the host. In short, after s
 ```
 mkdir -p ~/.plm-fulcrum
 cp contrib/docker/plm-fulcrum.conf.example ~/.plm-fulcrum/plm-fulcrum.conf   # then set rpcuser / rpcpassword
-docker compose -f contrib/docker/docker-compose.yml up -d --build
+docker compose -f contrib/docker/docker-compose.yml up -d                                      # pulls the published image
 docker compose -f contrib/docker/docker-compose.yml logs -f                  # wait for "up-to-date"
 ```
 

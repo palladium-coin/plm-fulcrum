@@ -3,10 +3,9 @@
 # start the node first. Setup and usage: contrib/docker/README.md
 services:
   plm-fulcrum:
-    build:
-      context: ../..
-      dockerfile: contrib/docker/Dockerfile
-    image: plm-fulcrum:local
+    # published multi-arch image (amd64/arm64); pin another release with PLM_FULCRUM_VERSION.
+    # To build from this checkout instead, add docker-compose.build.yml (see README.md).
+    image: ghcr.io/palladium-coin/plm-fulcrum:${PLM_FULCRUM_VERSION:-0.1.0}
     container_name: plm-fulcrum
     restart: unless-stopped
     # the entrypoint appends -D (data dir) and the TLS certificate/key options

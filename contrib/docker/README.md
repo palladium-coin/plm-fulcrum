@@ -36,10 +36,19 @@ All commands are run from the root of this repository.
    already `docker-palladiumcore:2332` (the node's container name and RPC port). Don't set `datadir`, `cert` or `key`:
    the container sets them. The file holds the RPC password, so keep it out of version control.
 
-3. **Build the image and start the container:**
+3. **Start the container:**
 
    ```
-   docker compose -f contrib/docker/docker-compose.yml up -d --build
+   docker compose -f contrib/docker/docker-compose.yml up -d
+   ```
+
+   This pulls the published image `ghcr.io/palladium-coin/plm-fulcrum:0.1.0` (amd64 or arm64, picked automatically).
+   To run another release, set `PLM_FULCRUM_VERSION` (e.g. `PLM_FULCRUM_VERSION=0.2.0 docker compose ... up -d`).
+
+   To build the image from this checkout instead (needed for unreleased changes), add the build override:
+
+   ```
+   docker compose -f contrib/docker/docker-compose.yml -f contrib/docker/docker-compose.build.yml up -d --build
    ```
 
    The first build compiles the server and takes about ten minutes. Later builds reuse the cached layers.
@@ -60,7 +69,8 @@ All commands are run from the root of this repository.
 | Stop | `docker compose -f contrib/docker/docker-compose.yml stop` |
 | Start again | `docker compose -f contrib/docker/docker-compose.yml start` |
 | Log | `docker compose -f contrib/docker/docker-compose.yml logs -f` |
-| Update after a `git pull` | `docker compose -f contrib/docker/docker-compose.yml up -d --build` |
+| Update to a new release | set `PLM_FULCRUM_VERSION`, then `docker compose -f contrib/docker/docker-compose.yml up -d` (pulls the new image) |
+| Update a local build after a `git pull` | `docker compose -f contrib/docker/docker-compose.yml -f contrib/docker/docker-compose.build.yml up -d --build` |
 | Remove the container | `docker compose -f contrib/docker/docker-compose.yml down` (the data in `~/.plm-fulcrum` is kept) |
 
 The container restarts automatically after a reboot or a crash (`restart: unless-stopped`), and it is given up to two
@@ -101,6 +111,7 @@ Opening ports `50001` and `50002` on the host's firewall is enough for the serve
 
 ## Publishing an image
 
-`contrib/docker/build.sh <image tag>` builds a multi-architecture image (`linux/arm64` and `linux/amd64`) with `buildx` and
+Release images are built and published automatically by `.github/workflows/docker-release.yml` when a `vX.Y.Z` tag is
+pushed. `contrib/docker/build.sh <image tag>` is the manual alternative: it builds a multi-architecture image (`linux/arm64` and `linux/amd64`) with `buildx` and
 pushes it to the registry in the tag, so you must be logged in to that registry first. It is not needed to run the
-server with the compose file above, which builds the image locally.
+server with the compose file above, which pulls the published image.
