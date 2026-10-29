@@ -1,5 +1,9 @@
 # plm-fulcrum
 
+[![CI](https://github.com/palladium-coin/plm-fulcrum/actions/workflows/test.yml/badge.svg)](https://github.com/palladium-coin/plm-fulcrum/actions/workflows/test.yml)
+[![Latest tag](https://img.shields.io/github/v/tag/palladium-coin/plm-fulcrum?sort=semver&label=version)](https://github.com/palladium-coin/plm-fulcrum/tags)
+[![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE.txt)
+
 A fast & nimble Electrum-protocol SPV server for Palladium (PLM).
 
 #### Palladium (PLM) adaptation
@@ -143,6 +147,19 @@ The first argument to the script is the platform to build (in this case
     `$ GIT_REPO=$(pwd) contrib/build/build.sh linux main`
 
 ---
+
+### Pre-built Docker image
+
+Every release tag `vX.Y.Z` publishes a multi-architecture image (`linux/amd64` and `linux/arm64`) on GitHub Container
+Registry, tagged `X.Y.Z` and `latest`. The latest version is shown in the badge at the top of this page and on the
+[tags page](https://github.com/palladium-coin/plm-fulcrum/tags).
+
+```
+docker pull ghcr.io/palladium-coin/plm-fulcrum:latest      # or pin a version, e.g. ghcr.io/palladium-coin/plm-fulcrum:0.1.0
+docker run --rm --entrypoint plm-fulcrum ghcr.io/palladium-coin/plm-fulcrum:latest --version
+```
+
+For production, pin a specific `X.Y.Z` instead of `latest`.
 
 ### Running with Docker Compose
 
