@@ -27,6 +27,8 @@ Tests/benchmarks are compiled in only when `DEFINES += ENABLE_TESTS` is uncommen
 
 There is no linter. Tests are registered at namespace scope with `App::registerTest(...)` / `registerBench(...)` (`src/App.h`), spread across `src/Json/tests.cpp`, `src/bitcoin/test.cpp` and `src/tests/`. Standalone programs in `test/` are not part of the build.
 
+End-to-end check (not in CI): `test/e2e/wallet_e2e.sh` starts an isolated regtest `palladiumd` container, a fresh `./plm-fulcrum` and drives the PalladiumWallet CLI (sync, send, mempool, Merkle proof, reorg). Needs docker, .NET 10 and `~/PalladiumWallet`; rebuild `./plm-fulcrum` first. Coinbase maturity is 120 (wallet needs 121 confirmations) and Fulcrum sees new mempool txs only on its poll timer.
+
 CI (`.github/workflows/test.yml`, on push to `main`/`dev` and PRs) runs: tests with g++-13 and clang++-17 (`qmake DEFINES+=ENABLE_TESTS`, `--test all`), release build + smoke test, lcov coverage (needs `-fprofile-update=atomic`, tests are multithreaded), and a build of `contrib/docker/Dockerfile`. It does not publish images or releases. Code must compile with both g++-13 and clang++-17 (libstdc++ 13/14): check a file quickly with `clang++-18 -std=c++20 -fsyntax-only -fPIC -Isrc -I/usr/include/x86_64-linux-gnu/qt5 -I/usr/include/x86_64-linux-gnu/qt5/QtCore <file>`.
 
 Run against a node: see `doc/plm-fulcrum-example-config.conf`. The node must have `txindex=1` and not be pruned; `zmqpubhashblock` is recommended.
