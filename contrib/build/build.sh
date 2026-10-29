@@ -199,6 +199,12 @@ docker run $arch_arg --rm -it -v "$workdir":/work${osxfs_option} \
     --name "$docker_cont_name" \
     "$docker_img_name" /work/"$PACKAGE"/contrib/build/${plat}/_build.sh "$PACKAGE" "$ROCKSDB_PACKAGE" "$JEMALLOC_PACKAGE" "$MINIUPNPC_PACKAGE" "$DEBUG_BUILD"
 
+# The container runs as root, so files it created in $workdir are root-owned and can't be removed below. Give them back
+# to the invoking user (a no-op in effect on hosts where Docker doesn't map ownership, e.g. MacOS).
+docker run $arch_arg --rm -v "$workdir":/work${osxfs_option} --entrypoint chown "$docker_img_name" \
+    -R "$(id -u):$(id -g)" /work \
+    || fail "Could not restore ownership of the build products"
+
 (mkdir -p "$outdir" && cp -fpva "$workdir"/built/* "$outdir"/. && rm -fr "$workdir") \
     || fail "Could not clean up and move build products"
 
