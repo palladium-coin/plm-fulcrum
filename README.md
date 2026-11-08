@@ -155,7 +155,7 @@ Registry, tagged `X.Y.Z` and `latest`. The latest version is shown in the badge 
 [tags page](https://github.com/palladium-coin/plm-fulcrum/tags).
 
 ```
-docker pull ghcr.io/palladium-coin/plm-fulcrum:latest      # or pin a version, e.g. ghcr.io/palladium-coin/plm-fulcrum:0.1.0
+docker pull ghcr.io/palladium-coin/plm-fulcrum:latest      # or pin a version, e.g. ghcr.io/palladium-coin/plm-fulcrum:0.1.1
 docker run --rm --entrypoint plm-fulcrum ghcr.io/palladium-coin/plm-fulcrum:latest --version
 ```
 

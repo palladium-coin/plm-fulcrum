@@ -5,7 +5,7 @@ services:
   plm-fulcrum:
     # published multi-arch image (amd64/arm64); pin another release with PLM_FULCRUM_VERSION.
     # To build from this checkout instead, add docker-compose.build.yml (see README.md).
-    image: ghcr.io/palladium-coin/plm-fulcrum:${PLM_FULCRUM_VERSION:-0.1.0}
+    image: ghcr.io/palladium-coin/plm-fulcrum:${PLM_FULCRUM_VERSION:-0.1.1}
     container_name: plm-fulcrum
     restart: unless-stopped
     # the entrypoint appends -D (data dir) and the TLS certificate/key options

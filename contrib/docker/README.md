@@ -42,7 +42,7 @@ All commands are run from the root of this repository.
    docker compose -f contrib/docker/docker-compose.yml up -d
    ```
 
-   This pulls the published image `ghcr.io/palladium-coin/plm-fulcrum:0.1.0` (amd64 or arm64, picked automatically).
+   This pulls the published image `ghcr.io/palladium-coin/plm-fulcrum:0.1.1` (amd64 or arm64, picked automatically).
    To run another release, set `PLM_FULCRUM_VERSION` (e.g. `PLM_FULCRUM_VERSION=0.2.0 docker compose ... up -d`).
 
    To build the image from this checkout instead (needed for unreleased changes), add the build override:
@@ -89,6 +89,23 @@ minutes to stop, so the database is flushed cleanly.
   change the mappings in `docker-compose.yml` to `"127.0.0.1:50001:50001"` and `"127.0.0.1:50002:50002"`.
 - **Other options:** any option of [doc/plm-fulcrum-example-config.conf](../../doc/plm-fulcrum-example-config.conf) can be
   added to `~/.plm-fulcrum/plm-fulcrum.conf`, except `datadir`, `cert` and `key`. Restart the container to apply them.
+
+## Peering with other servers
+
+Peering is off by default. To let your server discover the other public plm-fulcrum servers (and be listed by them),
+add this to `~/.plm-fulcrum/plm-fulcrum.conf` and restart the container:
+
+```
+peering = true
+announce = true
+hostname = <public IP or domain of this machine>
+public_tcp_port = 50001
+public_ssl_port = 50002
+```
+
+`hostname` is required: without it the server announces the container's internal Docker IP (`172.x.x.x`) and the other
+servers reject it with `Cannot find an entry in 'features' that matches the same hostname`. Ports `50001` and `50002`
+must be reachable from the internet. The log shows `Verified peer <host>` for each server found.
 
 ## Opening the server to other machines
 

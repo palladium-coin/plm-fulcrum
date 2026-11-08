@@ -1,6 +1,6 @@
-% PLM-FULCRUM(1) Version 0.1.0 | plm-fulcrum Manual
+% PLM-FULCRUM(1) Version 0.1.1 | plm-fulcrum Manual
 % plm-fulcrum was written by Calin Culianu (cculianu); Palladium (PLM) adaptation by Davide Grilli
-% October 27, 2026
+% November 08, 2026
 
 # NAME
 

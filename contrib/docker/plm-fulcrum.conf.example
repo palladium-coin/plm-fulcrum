@@ -11,4 +11,12 @@ rpcpassword = CHANGE_ME
 tcp = 0.0.0.0:50001
 ssl = 0.0.0.0:50002
 
+# Peering (discovery of other public servers, and being discovered by them) is off by default. To join the network,
+# uncomment the lines below and set hostname to the public IP address or domain name of this machine. Without
+# 'hostname' the server announces the container's internal Docker IP (172.x.x.x) and other servers reject it.
 peering = false
+#peering = true
+#announce = true
+#hostname = <public IP or domain of this machine>
+#public_tcp_port = 50001
+#public_ssl_port = 50002
