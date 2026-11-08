@@ -21,6 +21,13 @@ services:
     environment:
       HOME: /data
     stop_grace_period: 2m   # lets the database flush on shutdown
+    # log rotation: at most PLM_LOG_MAX_FILE files of PLM_LOG_MAX_SIZE each (default 3 x 50m = 150 MB).
+    # Without a limit Docker's json-file log grows forever. Change the two variables to taste (see README.md).
+    logging:
+      driver: json-file
+      options:
+        max-size: "${PLM_LOG_MAX_SIZE:-50m}"
+        max-file: "${PLM_LOG_MAX_FILE:-3}"
     networks: [palladium]
 
 networks:

@@ -73,6 +73,10 @@ All commands are run from the root of this repository.
 | Update a local build after a `git pull` | `docker compose -f contrib/docker/docker-compose.yml -f contrib/docker/docker-compose.build.yml up -d --build` |
 | Remove the container | `docker compose -f contrib/docker/docker-compose.yml down` (the data in `~/.plm-fulcrum` is kept) |
 
+**Log rotation.** The container log is capped at 3 files of 50 MB each (150 MB). To change it, set `PLM_LOG_MAX_SIZE`
+(e.g. `100m`) and/or `PLM_LOG_MAX_FILE` (e.g. `5`) in the environment or in a `.env` file next to where you run
+`docker compose`, then recreate the container with `up -d`. The new limit only applies to a container created after the change.
+
 The container restarts automatically after a reboot or a crash (`restart: unless-stopped`), and it is given up to two
 minutes to stop, so the database is flushed cleanly.
 
