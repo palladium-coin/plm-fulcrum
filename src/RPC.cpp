@@ -918,7 +918,11 @@ namespace RPC {
                         // ERROR here, expected integer code
                         throw Exception(QString("Could not parse status code: %1").arg(QString(code)));
                     }
-                    if (sm->status != 200 && sm->status != 500) { // bitcoind sends 200 on results= and 500 on error= RPC messages. Everything else is unexpected.
+                    if (sm->status == 503) {
+                        // bitcoind returns 503 (with an HTML body) when its RPC work queue is full or it is shutting down/restarting.
+                        // Transient: log one line, don't dump the headers/HTML body.
+                        Warning() << "Got HTTP status 503 " << msg << " (node busy, restarting or shutting down)";
+                    } else if (sm->status != 200 && sm->status != 500) { // bitcoind sends 200 on results= and 500 on error= RPC messages. Everything else is unexpected.
                         Warning() << "Got HTTP status " << sm->status << " " << msg
                                   << (!Trace::isEnabled() ? "; will log the rest of this HTTP response" : "");
                         sm->logBad = true;
@@ -947,7 +951,7 @@ namespace RPC {
                                                 s_close("close"), s_keep_alive("keep-alive");
                         if (name == s_content_type) {
                             sm->contentType = QString::fromUtf8(value);
-                            if (sm->contentType.compare(s_application_json, Qt::CaseInsensitive) != 0) {
+                            if (sm->status != 503 && sm->contentType.compare(s_application_json, Qt::CaseInsensitive) != 0) {
                                 Warning() << "Got unexpected content type: " << sm->contentType << (!Trace::isEnabled() ? "; will log the rest of this HTTP response" : "");
                                 sm->logBad = true;
                             }

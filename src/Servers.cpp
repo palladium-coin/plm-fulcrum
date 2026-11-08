@@ -486,7 +486,7 @@ bool ServerBase::attachPerIPDataAndCheckLimits(QTcpSocket *socket)
         // May happen rarely -- the low-level socket descriptor was "disconnected" already before we could even
         // begin processing, so socket->peerAddress() returns a null address since it cannot get any address
         // from the kernel.
-        Warning() << "Could not create per-IP data in " << __func__ << " -- client may have already disconnected!";
+        Debug() << "Could not create per-IP data in " << __func__ << " -- client may have already disconnected!";
         ok = false;
     }
     if (!ok) {
@@ -715,7 +715,7 @@ void ServerBase::onPeerError(IdMixin::Id clientId, const QString &what)
     }
     if (Client *c = getClient(clientId)) {
         if (const auto diff = qlonglong(++c->info.errCt) - qlonglong(c->info.nRequestsRcv); diff >= kMaxErrorCount) {
-            Warning() << "Excessive errors (" << diff << ") for: " << c->prettyName() << ", disconnecting";
+            Debug() << "Excessive errors (" << diff << ") for: " << c->prettyName() << ", disconnecting";
             killClient(c);
             return;
         }
@@ -2447,7 +2447,7 @@ void ServerSSL::incomingConnection(qintptr socketDescriptor)
     timer->setSingleShot(true);
     static const auto kTimedOutPropertyName = "ServerSSL_Handshake_Timed_Out";
     connect(timer, &QTimer::timeout, this, [socket, timer, peerName]{
-        Warning() << peerName << " SSL handshake timed out after " << QString::number(timer->interval()/1e3, 'f', 1) << " secs, deleting socket";
+        Debug() << peerName << " SSL handshake timed out after " << QString::number(timer->interval()/1e3, 'f', 1) << " secs, deleting socket";
         socket->setProperty(kTimedOutPropertyName, true);
         socket->abort();
         socket->deleteLater();
